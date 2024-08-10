@@ -1,38 +1,16 @@
 import api, { route, storage } from "@forge/api";
 import { storageKeys } from "../constants/storageKey";
-const zlib = require("zlib");
 
-const compressData = (data) => {
-  return new Promise((resolve, reject) => {
-    zlib.gzip(JSON.stringify(data), (err, compressed) => {
-      if (err) reject(err);
-      else resolve(compressed);
-    });
-  });
-};
 const getPayloadSize = (payload) => {
   let sizeInBytes;
-  // if (typeof payload === "string") {
-  //   sizeInBytes = new TextEncoder().encode(payload).length;
-  // } else if (payload instanceof Blob || payload instanceof File) {
-  //   sizeInBytes = payload.size;
-  // } else if (payload instanceof ArrayBuffer) {
-  //   sizeInBytes = payload.byteLength;
-  // } else {
-  //   // For objects, arrays, etc.
-
-  console.log("payload", payload);
   sizeInBytes = new TextEncoder().encode(JSON.stringify(payload)).length;
-  console.log("sizeInBy", sizeInBytes);
-  //}
-
   const sizeInKB = (sizeInBytes / 1024).toFixed(2);
   return parseFloat(sizeInKB);
 };
 
 const backendUrl = "https://express-redis-email.onrender.com";
 
-export const redisCacheService = {
+export const cacheService = {
   setCacheValue: async (key, value, cacheType) => {
     try {
       const cacheData = {
@@ -40,14 +18,8 @@ export const redisCacheService = {
         timestamp: Date.now(),
       };
       if (cacheType === "redis") {
-        return await redisCacheService.setOnRedis(key, cacheData);
+        return await cacheService.setOnRedis(key, cacheData);
       }
-      const compressedData = await compressData(cacheData);
-      console.log("sizeInBytes cacheData", getPayloadSize(cacheData));
-      console.log(
-        "sizeInBytes compressedCacheData",
-        getPayloadSize(compressedData)
-      );
       if (key.includes("redis") || getPayloadSize(cacheData) > 200) return;
       console.log("STORING VALUEE", key);
       await storage.set(key, cacheData);
@@ -61,7 +33,7 @@ export const redisCacheService = {
       console.log("cacheType", cacheType);
       let cachedValue = null;
       if (cacheType === "redis") {
-        cachedValue = await redisCacheService.getFromRedis(key);
+        cachedValue = await cacheService.getFromRedis(key);
       } else {
         cachedValue = await storage.get(key);
       }
@@ -138,6 +110,7 @@ export const redisCacheService = {
     }
   },
 
+  // CACHE MANAGEMENT
   initializeTransfer: async (key, totalChunks, totalSize) => {
     try {
       const metadata = {
@@ -146,9 +119,7 @@ export const redisCacheService = {
         receivedChunks: 0,
         timestamp: Date.now(),
       };
-      console.log("SENDING metadata", metadata)
       await storage.set(`${key}:metadata`, metadata);
-      console.log("SENDING key", `${key}:metadata`)
     } catch (error) {
       console.error("SENDING error init transfer", error)
     }
@@ -156,47 +127,8 @@ export const redisCacheService = {
   storeCacheChunk: async (key, chunkIndex, chunk) => {
     await storage.set(`${key}:chunk:${chunkIndex}`, chunk);
     const metadata = await storage.get(`${key}:metadata`);
-    console.log("SENDING metadata", metadata)
     metadata.receivedChunks++;
     await storage.set(`${key}:metadata`, metadata);
-  },
-  storeChunk: async (key, chunkIndex, chunk) => {
-    await storage.set(`${key}:chunk:${chunkIndex}`, chunk);
-    const metadata = await storage.get(`${key}:metadata`);
-    console.log("SENDING metadata", metadata);
-    console.log("SENDING metadata.receivedChunks", metadata.receivedChunks);
-    metadata.receivedChunks++;
-    await storage.set(`${key}:metadata`, metadata);
-  },
-  checkTransferComplete: async (key) => {
-    const metadata = await storage.get(`${key}:metadata`);
-    console.log("SENDING metadata", metadata);
-    console.log("SENDING metadata.receivedChunks", metadata.receivedChunks);
-    return metadata.receivedChunks === metadata.totalChunks;
-  },
-  getAllChunks: async (key) => {
-    const metadata = await storage.get(`${key}:metadata`);
-    let completeData = "";
-    for (let i = 0; i < metadata.totalChunks; i++) {
-      const chunk = await storage.get(`${key}:chunk:${i}`);
-      completeData += chunk;
-    }
-    return completeData;
-  },
-  getAllChunks2: async (key, totalChunks) => {
-    let completeData = "";
-    for (let i = 0; i < totalChunks; i++) {
-      const chunk = await storage.get(`${key}:chunk:${i}`);
-      completeData += chunk;
-    }
-    return completeData;
-  },
-  clearChunks: async (key) => {
-    const metadata = await storage.get(`${key}:metadata`);
-    for (let i = 0; i < metadata.totalChunks; i++) {
-      await storage.delete(`${key}:chunk:${i}`);
-    }
-    await storage.delete(`${key}:metadata`);
   },
   getCachedData: async (key) => {
     const metadata = await storage.get(`${key}:metadata`);
@@ -205,15 +137,13 @@ export const redisCacheService = {
       return null;
     }
 
-    console.log("completeData metadata", metadata)
     const { totalChunks, totalSize } = metadata;
 
     if (totalSize <= (5000 * 1024)) {
-      const completeData = await redisCacheService.getAllChunks2(
+      const completeData = await cacheService.getAllChunks(
         key,
         totalChunks
       );
-      console.log("completeData", completeData)
       return {
         data: JSON.parse(completeData),
         isComplete: true,
@@ -226,6 +156,14 @@ export const redisCacheService = {
         isComplete: false,
       };
     }
+  },
+  getAllChunks: async (key, totalChunks) => {
+    let completeData = "";
+    for (let i = 0; i < totalChunks; i++) {
+      const chunk = await storage.get(`${key}:chunk:${i}`);
+      completeData += chunk;
+    }
+    return completeData;
   },
   getCachedDataChunk: async (key, chunkIndex, metadata) => {
     const { totalChunks, totalSize } = metadata;
@@ -249,22 +187,20 @@ export const redisCacheService = {
       isLastChunk: endIndex === totalChunks,
     };
   },
-  getAllChachedChunks: async (key) => {
-    try {
-      const metadata = await storage.get(`${key}:metadata`);
-      if (!metadata || metadata.receivedChunks != metadata.totalChunks) {
-        return null;
-      }
+  // END CACHE MANAGEMENT
+  
 
-      const jsonData = await redisCacheService.getAllChunks(key);
-      const completeData = JSON.parse(jsonData);
-      if (getPayloadSize(completeData) > 5000) {
-        return { metadata, isTooLarge: true };
-      }
-
-      return completeData;
-    } catch (error) {}
+  
+  clearChunks: async (key) => {
+    const metadata = await storage.get(`${key}:metadata`);
+    for (let i = 0; i < metadata.totalChunks; i++) {
+      await storage.delete(`${key}:chunk:${i}`);
+    }
+    await storage.delete(`${key}:metadata`);
   },
+  
+  
+  
 };
 
 const isValidMetaCache = (metadata) => {

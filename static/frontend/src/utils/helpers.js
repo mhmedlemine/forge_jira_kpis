@@ -120,10 +120,7 @@ export const helpers = {
       '<': '-',
       ',': ':'
     };
-    return helpers.replaceCharacters(jql, jqlReplacements);
-  },
-  replaceCharacters: (str, replacementMap) => {
-    return str.split('').map(char => replacementMap[char] || char).join('');
+    return jql.split('').map(char => jqlReplacements[char] || char).join('');
   },
   setCache: async (key, value) => {
     try {
@@ -174,35 +171,6 @@ export const helpers = {
       } 
     } catch (error) {
       console.error(`Error getting cache for key (${key}):`, error);
-    }
-  },
-  sendLargeData: async (key, data, cacheType) => {
-    try {
-      const jsonData = JSON.stringify(data);
-      const totalSize = new Blob([jsonData]).size;
-      console.log("SENDING totalSize", totalSize)
-      console.log("SENDING helpers.getPayloadSize(jsonData)", helpers.getPayloadSize(jsonData))
-      const chunkSize = 1 * 1024 * 200;
-      const totalChunks = Math.ceil(totalSize / chunkSize);
-      console.log("SENDING chunkSize", chunkSize)
-      console.log("SENDING totalChunks", totalChunks)
-
-      await invoke('initializeDataTransfer', { totalChunks, totalSize, key });
-
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * chunkSize;
-        const end = Math.min(start + chunkSize, totalSize);
-        const chunk = jsonData.slice(start, end);
-        console.log(`SENDING chunk ${i} size`, helpers.getPayloadSize(chunk))
-
-        await invoke('sendDataChunk', { chunkIndex: i, chunk, key });
-      }
-
-      const result = await invoke('processCompleteData', { key, cacheType });
-      console.log('Processing result:', result);
-    } catch (error) {
-      console.error('Transfer error:', error);
-      throw error;
     }
   },
 };

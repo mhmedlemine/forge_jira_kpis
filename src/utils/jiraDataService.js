@@ -93,7 +93,7 @@ export const jiraDataService = {
 
       if (response.status !== 200) {
         console.error('Error fetching boards:', response.status, await response.text());
-        return null;
+        return undefined;
       }
       
       const result = await response.json();
@@ -111,9 +111,12 @@ export const jiraDataService = {
         .asApp()
         .requestJira(route`/rest/agile/1.0/board?type=scrum,simple&projectKeyOrId=${projectKey}`);
 
+      if (response.status === 400) {
+          return undefined;
+      }
       if (response.status !== 200) {
         console.error('Error fetching boards:', response.status, await response.text());
-        return null;
+        return undefined;
       }
       
       const result = await response.json();
@@ -152,7 +155,7 @@ export const jiraDataService = {
       
       if (response.status !== 200) {
         console.error('Error fetching issues:', response.status, await response.text());
-        return null;
+        return undefined;
       }
       return await response.json();
     } catch (error) {
@@ -170,7 +173,7 @@ export const jiraDataService = {
       
       if (response.status !== 200) {
         console.error('Error fetching issue types:', response.status, await response.text());
-        return null;
+        return undefined;
       }
       const result = await response.json();
       return result;
@@ -189,7 +192,7 @@ export const jiraDataService = {
       
       if (response.status !== 200) {
         console.error('Error fetching issue priorities:', response.status, await response.text());
-        return null;
+        return undefined;
       }
 
       const result = await response.json();
@@ -209,7 +212,7 @@ export const jiraDataService = {
       
       if (response.status !== 200) {
         console.error('Error fetching issue statuses:', response.status, await response.text());
-        return null;
+        return undefined;
       }
       
       const result = await response.json();

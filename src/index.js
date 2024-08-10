@@ -1,8 +1,7 @@
 import Resolver from '@forge/resolver';
 import api, { route, storage } from '@forge/api';
 import { jiraDataService } from './utils/jiraDataService';
-import { redisCacheService } from './utils/redisCacheService';
-import { threeMbPayload } from './payload';
+import { cacheService } from './utils/cacheService';
 
 const resolver = new Resolver();
 
@@ -72,50 +71,37 @@ resolver.define('deleteAllStorage', async () => {
     console.error('Error deleting storage:', error);
   }
 });
-resolver.define('getRedisValue', async ({ payload }) => {
-  const { key } = payload;
-  try {
-    const value = await redisCacheService.getFromRedis(key);
-    return value !== null ? value : undefined;
-  } catch (error) {
-    console.error(`Error getting stored ${key}:`, error);
-    throw error;
-  }
-});
-resolver.define('setRedisValue', async ({ payload }) => {
-  const { key, value } = payload;
-  try {
-    await redisCacheService.setOnRedis(key, value);
-    return { success: true };
-  } catch (error) {
-    console.error(`Error saving ${key}:`, error);
-    throw error;
-  }
-});
 
-resolver.define('receiveLargeData', () => {
-  return threeMbPayload;
-});
+// CACH MANAGEMENT
 resolver.define('initializeDataTransfer', async ({ payload }) => {
   const { totalChunks, totalSize, key } = payload;
-  await redisCacheService.initializeTransfer(`${key}`, totalChunks, totalSize);
+  await cacheService.initializeTransfer(`${key}`, totalChunks, totalSize);
   return { status: 'transfer initialized' };
+});
+resolver.define('setCacheDataChunk', async ({ payload }) => {
+  const { chunkIndex, chunk, key } = payload;
+  await cacheService.storeCacheChunk(key, chunkIndex, chunk);
+  return { status: 'chunk received' };
 });
 resolver.define('getCachedData', async ({ payload }) => {
   const { key } = payload;
-  const result = await redisCacheService.getCachedData(key);
+  const result = await cacheService.getCachedData(key);
   return result !== null ? result : undefined;
 });
 resolver.define('getCachedDataChunk', async ({ payload }) => {
   const { key, chunkIndex, metadata } = payload;
 
-  return await redisCacheService.getCachedDataChunk(key, chunkIndex, metadata);
+  return await cacheService.getCachedDataChunk(key, chunkIndex, metadata);
 });
+// END CACH MANAGEMENT
+
+
+
 
 resolver.define('getAllCachedDataChunks', async ({ payload }) => {
   const { key } = payload;
   try {
-    const result = await redisCacheService.getAllChachedChunks(key);
+    const result = await cacheService.getAllChachedChunks(key);
     return result !== null ? result : undefined;
   } catch (error) {
     console.error(`Error geting all cached data chunks for ${key}:`, error);
@@ -128,40 +114,15 @@ resolver.define('getCacheMetadata', async ({ payload }) => {
 
   return metadata;
 });
-resolver.define('setCacheDataChunk', async ({ payload }) => {
-  const { chunkIndex, chunk, key } = payload;
-  await redisCacheService.storeCacheChunk(key, chunkIndex, chunk);
-  return { status: 'chunk received' };
-});
-resolver.define('sendDataChunk', async ({ payload }) => {
-  const { chunkIndex, chunk, key } = payload;
-  console.log("SENDING sendDataChunk chunk", chunk);
-  await redisCacheService.storeChunk(key, chunkIndex, chunk);
-  const isComplete = await redisCacheService.checkTransferComplete(key);
-  return { status: isComplete ? 'all chunks received' : 'chunk received' };
-});
-resolver.define('processCompleteData', async ({ payload }) => {
-  const { key, cacheType } = payload;
-  try {
-    const jsonData = await redisCacheService.getAllChunks(key);
-    const completeData = JSON.parse(jsonData);
-    await redisCacheService.setCacheValue(key, completeData, cacheType);
-    await redisCacheService.clearChunks(key);
-    return {
-      message: 'Data processed successfully',
-      dataSize: JSON.stringify(completeData).length
-    };
-  } catch (error) {
-    console.error(`Error saving ${key}:`, error);
-    throw error;
-  }
-});
+
+
+
 
 
 resolver.define('getCacheValue', async ({ payload }) => {
   const { key, cacheType } = payload;
   try {
-    const value = await redisCacheService.getCacheValue(key, cacheType);
+    const value = await cacheService.getCacheValue(key, cacheType);
     return value !== null ? value : undefined;
   } catch (error) {
     console.error(`Error getting stored ${key}:`, error);
@@ -171,7 +132,7 @@ resolver.define('getCacheValue', async ({ payload }) => {
 resolver.define('setCacheValue', async ({ payload }) => {
   const { key, value, cacheType } = payload;
   try {
-    await redisCacheService.setCacheValue(key, value, cacheType);
+    await cacheService.setCacheValue(key, value, cacheType);
     return { success: true };
   } catch (error) {
     console.error(`Error saving ${key}:`, error);

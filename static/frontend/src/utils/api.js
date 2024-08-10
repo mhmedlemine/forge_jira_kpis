@@ -162,7 +162,7 @@ export const apiService = {
           expand,
           fields,
         });
-        if (data === null) break;
+        if (data === null || data === undefined || Object.keys(data).length == 0) break;
         const issues = jiraDataParser.extractIssues(data);
         allIssues.push(...issues);
 
@@ -177,7 +177,7 @@ export const apiService = {
       return allIssues;
     } catch (error) {
       console.error("Error fetching Issues:", error);
-      return [];
+      throw error;
     }
   },
   fetchIssueTypes: async () => {
@@ -319,7 +319,7 @@ export const apiService = {
       ) {
         return cachedData;
       }
-      const issues = await apiService.fetchAllIssuess({ timeFrame: 90 });
+      const issues = await apiService.fetchAllIssuess({});
       const projects = Array.from(
         new Set(issues.map((issue) => JSON.stringify(issue.project)))
       ).map((projectString) => JSON.parse(projectString));
