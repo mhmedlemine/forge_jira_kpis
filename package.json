@@ -1,0 +1,17 @@
+{
+  "name": "jira-global-page-custom-ui",
+  "version": "1.0.46",
+  "main": "index.js",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "eslint-plugin-react-hooks": "^4.6.0"
+  },
+  "dependencies": {
+    "@forge/bridge": "^3.5.0",
+    "@forge/resolver": "1.5.35",
+    "pako": "^2.1.0",
+    "react-router-dom": "^6.24.0"
+  }
+}

@@ -1,0 +1,802 @@
+// import { invoke } from "@forge/bridge";
+// import { jiraDataParser } from "./jiraDataParser";
+// import { helpers } from "./helpers";
+// import { calculateProjectKPIs, calculateUserKPIs } from "./kpiCalculations";
+// import { kpiCalculations } from "./kpiCalculations";
+// import { storageKeys } from "../constants/storageKey";
+
+// export const apiService = {
+//   /***
+//    * JIRA DATA FETCH METHODS
+//    */
+//   fetchAllProjects: async () => {
+//     try {
+//       const cachedData = await invoke("getStoredValue", { key: storageKeys.PROJECTS_CACHE_KEY });
+//       if (isValidCache(cachedData)) {
+//         return cachedData.data;
+//       }
+//       const data = await invoke("getProjects");
+
+//       const parsedProjects = jiraDataParser.extractProjects(data);
+//       await invoke("saveStoredValue", { 
+//         key: storageKeys.PROJECTS_CACHE_KEY, 
+//         value: {
+//           data: parsedProjects,
+//           timestamp: Date.now()
+//         },
+//       });
+//       return parsedProjects;
+//     } catch (error) {
+//       console.error("Error fetching projects:", error);
+//       throw error;
+//     }
+//   },
+//   fetchAllUsers: async () => {
+//     try {
+//       const data = await invoke("getUsers");
+
+//       return jiraDataParser.extractUsers(data);
+//     } catch (error) {
+//       console.error("Error fetching Users:", error);
+//       throw error;
+//     }
+//   },
+//   fetchUsersByProjectKey: async (projectKey) => {
+//     try {
+//       const data = await invoke("getUsers", { projectKey });
+
+//       return jiraDataParser.extractUsers(data);
+//     } catch (error) {
+//       console.error(`Error fetching Users for project ${projectKey}:`, error);
+//       throw error;
+//     }
+//   },
+//   fetchAllIssuess: async ({
+//     project = null,
+//     assignee = null,
+//     createdStart = null,
+//     createdEnd = null,
+//     updatedStart = null,
+//     updatedEnd = null,
+//     status = null,
+//     sprint = null,
+//     timeFrame = null,
+//     projectIds = [],
+//     userIds = [],
+//     issueTypes = [],
+//     sprintIds = [],
+//     priorities = [],
+//     statuses = [],
+//   }) => {
+//     try {
+//       const jqlQuery = helpers.generateJQL({ project, assignee, createdStart, createdEnd, updatedStart, updatedEnd, status, sprint, timeFrame, projectIds, userIds, issueTypes, sprintIds, priorities, statuses });
+//       let startAt = 0;
+//       const maxResults = 100;
+//       const expand = "changelog";
+//       const fields = "id,key,changelog,assignee,created,creator,description,duedate,issuetype,priority,project,reporter,status,resolutiondate,summary,updated,customfield_10015,customfield_10016,customfield_10020"
+
+//       let moreResults = true;
+//       const allIssues = [];
+//       while (moreResults) {
+//         const data = await invoke("getIssues", { jqlQuery, startAt, maxResults, expand, fields });
+//         if (data === null) break;
+//         const issues = jiraDataParser.extractIssues(data);
+//         allIssues.push(...issues);
+
+//         startAt += maxResults;
+//         moreResults = startAt < data.total;
+//       }
+
+//       return allIssues;
+//     } catch (error) {
+//       console.error("Error fetching Issues:", error);
+//       return [];
+//     }
+//   },
+//   fetchIssueTypes: async () => {
+//     try {
+//       const data = await invoke("getIssueTypes");
+//       return [...new Set(data.map((issueTypeNode) => issueTypeNode.name))];
+//     } catch (error) {
+//       console.error("Error fetching issue types:", error);
+//       throw error;
+//     }
+//   },
+//   fetchIssuePriorities: async () => {
+//     try {
+//       const data = await invoke("getIssuePriorities");
+//       return [...new Set(data.map((issuePriorityNode) => issuePriorityNode.name))];
+//     } catch (error) {
+//       console.error("Error fetching issue priorities:", error);
+//       throw error;
+//     }
+//   },
+//   fetchIssueStatuses: async () => {
+//     try {
+//       const data = await invoke("getIssueStatuses");
+//       return [...new Set(data.map((issueStatusNode) => issueStatusNode.name))];
+//     } catch (error) {
+//       console.error("Error fetching statuses:", error);
+//       throw error;
+//     }
+//   },
+//   fetchAllSprints: async () => {
+//     try {
+//       const boardsJson = await invoke("getBoards");
+//       const boards = boardsJson.values;
+//       const sprints = [];
+//       sprints.push(...await getSprintsForBoards(boards));
+//       return sprints;
+//     } catch (error) {
+//       console.error("Error fetching Sprints:", error);
+//       throw error;
+//     }
+//   },
+//   fetchSprintsForProject: async (projectKey) => {
+//     try {
+//       const boardsJson = await invoke("getBoardsForProject", { projectKey });
+//       const boards = boardsJson.values;
+//       const sprints = [];
+//       sprints.push(...await getSprintsForBoards(boards));
+
+//       return sprints;
+//     } catch (error) {
+//       console.error("Error fetching Sprints:", error);
+//       throw error;
+//     }
+//   },
+//   /***
+//    * END JIRA DATA FETCH METHODS
+//    */
+//   /***
+//    * DASHBOARD RELATED METHODS
+//    */
+//   fetchKPIsOverview: async () => {
+//     try {
+//       const cachedData = await invoke("getStoredValue", { key: storageKeys.KPIS_OVERVIEW_CACHE_KEY });
+//       if (isValidCache(cachedData)) {
+//         return cachedData.data;
+//       }
+
+//       const issues = await apiService.fetchAllIssuess({ timeFrame: 90 });
+//       const projects = Array.from(new Set(issues.map(issue => JSON.stringify(issue.project)))).map(projectString => JSON.parse(projectString));
+//       const users = Array.from(new Set(issues.filter(issue => issue.assignee).map(issue => JSON.stringify(issue.assignee)))).map(userString => JSON.parse(userString));
+//       const sprints = Array.from(new Set(issues.filter(issue => issue.sprints).flatMap(issue => issue.sprints).map(sprint => JSON.stringify(sprint)))).map(sprintString => JSON.parse(sprintString));
+  
+//       const activeProjects = projects.length;
+//       const activeMembers = users.length;
+//       const totalIssues = issues.length;
+//       const openIssues = issues.filter((issue) => issue.status.toLowerCase() === 'in progress').length;
+//       const closedIssues = issues.filter((issue) => issue.status.toLowerCase() === "done").length;
+//       const sevenDaysAgo = new Date();
+//       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+//       const lastWeekIssues = issues.filter(issue => new Date(issue.created) >= sevenDaysAgo);
+//       const lastWeekProjects = Array.from(new Set(lastWeekIssues.map(issue => JSON.stringify(issue.project)))).map(projectString => JSON.parse(projectString));
+//       const projectKpis = [];
+//       lastWeekProjects.map(project => {
+//         const projectIssues = lastWeekIssues.filter((i) => i.project.key === project.key);
+//         projectKpis.push(calculateProjectKPIs({issues: projectIssues, sprints, project}));
+//       });
+//       const lastWeekUsers = Array.from(new Set(lastWeekIssues.filter(issue => issue.assignee).map(issue => JSON.stringify(issue.assignee)))).map(userString => JSON.parse(userString));
+//       const userKpis = [];
+//       lastWeekUsers.map(user => {
+//         const userIssues = lastWeekIssues.filter((i) => i.assignee  !== null && i.assignee.accountId === user.accountId);
+//         userKpis.push(calculateUserKPIs({issues: userIssues, user: user.displayName}));
+//       });
+      
+//       const data = {
+//         kpisOverview: {
+//           activeProjects: `${activeProjects}`,
+//           activeMembers: `${activeMembers}`,
+//           totalIssues: `${totalIssues}`,
+//           openIssues: `${openIssues}`,
+//           closedIssues: `${closedIssues}`,
+//           leadTime: `${kpiCalculations.leadTime({issues})} days`,
+//           cycleTime: `${kpiCalculations.leadTime({issues})} days`,
+//           sprintVelocity: `${kpiCalculations.sprintVelocity({issues, sprints})} story points`,
+//           defectDensity: `${ kpiCalculations.avgProjectDefectDensity({issues, projects})}%`,
+//         },
+//         projectKpis,
+//         userKpis,
+//         projects,
+//         sprints,
+//         users,
+//       };
+//       await invoke("saveStoredValue", { 
+//         key: storageKeys.KPIS_OVERVIEW_CACHE_KEY, 
+//         value: {
+//           data: data,
+//           timestamp: Date.now()
+//         },
+//       });
+//       return data;
+//     } catch (error) {
+//       console.error("Error fetching Kpis Overview:", error);
+//       throw error;
+//     }
+//   },
+//   fetchResolutionTimeChartData: async (timeFrame) => {
+//     try {
+//       const cachedData = await invoke("getStoredValue", { key: storageKeys.RESOLUTION_TIME_CHART_DATA_CACHE_KEY(timeFrame) });
+//       if (isValidCache(cachedData)) {
+//         return cachedData.data;
+//       }
+//     } catch (error) {
+//       console.error(`Error getting stored ${RESOLUTION_TIME_CHART_DATA_CACHE_KEY(timeFrame)}:`, error)
+//     }
+
+//     const endDate = new Date();
+//     const startDate = new Date(endDate);
+//     startDate.setDate(startDate.getDate() - timeFrame);
+  
+//     const issues = await apiService.fetchAllIssuess({ timeFrame: timeFrame });
+  
+//     const chartData = {
+//       labels: [],
+//       data: []
+//     };
+  
+//     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+//       const currentDate = new Date(d);
+  
+//       const resolvedIssues = issues.filter(issue => {
+//         if (issue.resolutiondate !== null) {
+//           const resolutionDate = new Date(issue.resolutiondate);
+//           return resolutionDate.toDateString() === currentDate.toDateString();
+//         }
+//         return false;
+//       });
+  
+//       let averageResolutionTime = 0;
+//       if (resolvedIssues.length > 0) {
+//         const totalResolutionTime = resolvedIssues.reduce((sum, issue) => {
+//           const started = new Date(issue.startdate);
+//           const resolved = new Date(issue.resolutiondate);
+//           return sum + (resolved - started) / (1000 * 60 * 60 * 24);
+//         }, 0);
+//         averageResolutionTime = totalResolutionTime / resolvedIssues.length;
+//       }
+  
+//       chartData.labels.push(currentDate.toISOString().split('T')[0]);
+//       chartData.data.push(averageResolutionTime.toFixed(2));
+//     }
+
+//     try {
+//       await invoke("saveStoredValue", { 
+//         key: storageKeys.RESOLUTION_TIME_CHART_DATA_CACHE_KEY(timeFrame), 
+//         value: {
+//           data: chartData,
+//           timestamp: Date.now()
+//         }, 
+//       });
+//     } catch (error) {
+//       console.error(`Error getting stored ${storageKeys.USER_DETAILS_CACHE_KEY(userKey)}:`, error)
+//     }
+//     return chartData;
+//   },
+//   fetchSprintVelocityChartData: async (lastSprintCount) => {
+//     try {
+//       const cachedData = await invoke("getStoredValue", { key: storageKeys.SPRINT_VELOCITY_CHART_DATA_CACHE_KEY(lastSprintCount) });
+//       if (isValidCache(cachedData)) {
+//         return cachedData.data;
+//       }
+//     } catch (error) {
+//       console.error(`Error getting stored ${storageKeys.SPRINT_VELOCITY_CHART_DATA_CACHE_KEY(lastSprintCount)}:`, error)
+//     }
+
+//     const allSprints = await apiService.fetchAllSprints();
+//     const sortedSprints = allSprints.sort((a, b) => new Date(b.endDate) - new Date(a.endDate));
+//     const recentSprints = sortedSprints.slice(0, lastSprintCount);
+//     const chartData = {
+//       labels: [],
+//       data: []
+//     };
+  
+//     await Promise.all(recentSprints.map(async (sprint) => {
+//       const issues = await apiService.fetchAllIssuess({ sprint: sprint.id });
+//       const sprintIssues = issues.filter(issue =>
+//         issue.status.toLowerCase() === "done" &&
+//         new Date(issue.resolutiondate) <= new Date(sprint.endDate)
+//       );
+  
+//       const sprintVelocity = sprintIssues.reduce((sum, issue) => sum + (issue.storyPoints || 0), 0);
+  
+//       chartData.labels.unshift(sprint.name);
+//       chartData.data.unshift(sprintVelocity);
+//     }));
+  
+//     try {
+//       await invoke("saveStoredValue", { 
+//         key: storageKeys.SPRINT_VELOCITY_CHART_DATA_CACHE_KEY(lastSprintCount), 
+//         value: {
+//           data: chartData,
+//           timestamp: Date.now()
+//         }, 
+//       });
+//     } catch (error) {
+//       console.error(`Error getting stored ${storageKeys.SPRINT_VELOCITY_CHART_DATA_CACHE_KEY(lastSprintCount)}:`, error)
+//     }
+//     return chartData;
+//   },
+//   fetchDefectDensityChartData: async (timeFrame) => {
+//     try {
+//       const cachedData = await invoke("getStoredValue", { key: storageKeys.DEFECT_DENSITY_CHART_DATA_CACHE_KEY(timeFrame) });
+//       if (isValidCache(cachedData)) {
+//         return cachedData.data;
+//       }
+//     } catch (error) {
+//       console.error(`Error getting stored ${storageKeys.DEFECT_DENSITY_CHART_DATA_CACHE_KEY(timeFrame)}:`, error)
+//     }
+
+//     const endDate = new Date();
+//     const startDate = new Date(endDate);
+//     startDate.setDate(startDate.getDate() - timeFrame);
+  
+//     const issues = await apiService.fetchAllIssuess({ timeFrame: timeFrame });
+  
+//     const chartData = {
+//       labels: [],
+//       data: []
+//     };
+  
+//     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+//       const currentDate = new Date(d);
+  
+//       const dailyIssues = issues.filter(issue => {
+//         const createdDate = new Date(issue.created);
+//         return createdDate.toDateString() === currentDate.toDateString();
+//       });
+//       const defectDensity = kpiCalculations.defectDensity({issues: dailyIssues});
+  
+//       chartData.labels.push(currentDate.toISOString().split('T')[0]);
+//       chartData.data.push(defectDensity);
+//     }
+  
+//     try {
+//       await invoke("saveStoredValue", { 
+//         key: storageKeys.DEFECT_DENSITY_CHART_DATA_CACHE_KEY(timeFrame), 
+//         value: {
+//           data: chartData,
+//           timestamp: Date.now()
+//         } 
+//       });
+//     } catch (error) {
+//       console.error(`Error getting stored ${storageKeys.DEFECT_DENSITY_CHART_DATA_CACHE_KEY(timeFrame)}:`, error)
+//     }
+//     return chartData;
+//   },
+//   /***
+//    * END DASHBOARD RELATED METHODS
+//    */
+//   /***
+//    * USERS DASHBOARD RELATED METHODS
+//    */
+//   getUsersDashboardData: async (startDate, endDate) => {
+//     try {
+//       const cachedData = await invoke("getStoredValue", { key: storageKeys.USERS_CACHE_KEY });
+//       if (isValidCache(cachedData)) {
+//         return cachedData.data;
+//       }
+//     } catch (error) {
+//       console.error(`Error getting stored ${storageKeys.USERS_CACHE_KEY}:`, error)
+//     }
+//     const users = await apiService.fetchAllUsers();
+//     const last30DaysIssues = await apiService.fetchAllIssuess({ timeFrame: 30 });
+//     const activeMembers = new Set(
+//       last30DaysIssues
+//         .filter(issue => issue.assignee !== null)
+//         .map(issue => issue.assignee.accountId)
+//     ).size;
+  
+//     const userKpis = [];
+//     userKpis.push(...await getUsersKpis(startDate, endDate, users));
+  
+//     const data = { users, totalMembers: users.length, activeMembers, userKpis };
+//     try {
+//       await invoke("saveStoredValue", { 
+//         key: storageKeys.USERS_CACHE_KEY, 
+//         value: {
+//           data: data,
+//           timestamp: Date.now()
+//         },
+//       });
+//     } catch (error) {
+//       console.error(`Error getting stored ${storageKeys.USERS_CACHE_KEY}:`, error)
+//     }
+//     return data;
+//   },
+//   getUsersDashboardKpisData: async (startDate, endDate, users) => {
+//     try {
+//       const cachedData = await invoke("getStoredValue", { key: storageKeys.USERS_DASHBOARD_KPIS_CACHE_KEY(startDate, endDate) });
+//       if (isValidCache(cachedData)) {
+//         return cachedData.data;
+//       }
+//     } catch (error) {
+//       console.error(`Error getting stored ${storageKeys.USERS_DASHBOARD_KPIS_CACHE_KEY(startDate, endDate)}:`, error)
+//     }
+//     if (!users) {
+//       users = await apiService.fetchAllUsers();
+//     }
+//     const userKpis = [];
+//     userKpis.push(...await getUsersKpis(startDate, endDate, users));
+
+//     try {
+//       await invoke("saveStoredValue", { 
+//         key: storageKeys.USERS_DASHBOARD_KPIS_CACHE_KEY(startDate, endDate), 
+//         value: {
+//           data: userKpis,
+//           timestamp: Date.now()
+//         },
+//       });
+//     } catch (error) {
+//       console.error(`Error getting stored ${storageKeys.USERS_DASHBOARD_KPIS_CACHE_KEY(startDate, endDate)}:`, error)
+//     }
+//     return userKpis;
+//   },
+//   /***
+//    * END USERS DASHBOARD RELATED METHODS
+//    */
+//   /***
+//    * PROJECT DETAILS RELATED METHODS
+//    */
+//   getIssueByProjectKey: async (projectKey) => {
+//     const issues = await apiService.fetchAllIssuess({ project: projectKey });
+//     return { issues};
+//   },
+//   getKPIsByProjectKey: async (projectKey) => {
+//     try {
+//       const cachedData = await invoke("getStoredValue", { key: storageKeys.PROJECT_DETAILS_CACHE_KEY(projectKey) });
+//       if (isValidCache(cachedData)) {
+//         return cachedData.data;
+//       }
+//     } catch (error) {
+//       console.error(`Error getting stored ${storageKeys.PROJECT_DETAILS_CACHE_KEY(projectKey)}:`, error)
+//     }
+
+//     const project = await invoke("getProjectByKey", { projectKey: projectKey });
+//     const issues = await apiService.fetchAllIssuess({ project: projectKey });
+//     const sprints = await apiService.fetchSprintsForProject(projectKey);
+//     const currentSprint = sprints.find(s => s.state === "active") || null;
+//     const currentSprintIssues = issues.filter(i => currentSprint && i.sprints && i.sprints.some(sprint => sprint.id === currentSprint.id));
+//     const currentSprintTotalIssues = currentSprintIssues.length;
+//     const currentSprintClosedIssues = currentSprintIssues.filter(i => i.resolutiondate).length;
+//     const memberIssues = Object.groupBy(
+//       issues.filter(issue => issue.assignee != null),
+//       issue => issue.assignee.displayName
+//     );
+//     const userKpis = [];
+//     for (const [user, userIssues] of Object.entries(memberIssues)) {
+//       userKpis.push(calculateUserKPIs({issues: userIssues, user}));
+//     }
+
+//     const statusCount = issues.reduce((acc, issue) => {
+//       acc[issue.status] = (acc[issue.status] || 0) + 1;
+//       return acc;
+//     }, {});
+//     const typeCount = issues.reduce((acc, issue) => {
+//       acc[issue.issuetype] = (acc[issue.issuetype] || 0) + 1;
+//       return acc;
+//     }, {});
+
+//     const kpis = calculateProjectKPIs({issues, project, sprints});   
+//     const data = { project, issues, sprints, currentSprint, currentSprintTotalIssues, currentSprintClosedIssues, memberIssues, kpis, userKpis, numberofIssues: issues.length, statusCount, typeCount };
+//     const cachData = { project, sprints, kpis, userKpis, numberofIssues: issues.length, currentSprint, currentSprintTotalIssues, currentSprintClosedIssues, statusCount, typeCount };
+//     console.log("cached data size:",helpers.getPayloadSize(cachData))
+//     try {
+//       await invoke("saveStoredValue", { 
+//         key: storageKeys.PROJECT_DETAILS_CACHE_KEY(projectKey), 
+//         value: {
+//           data: cachData,
+//           timestamp: Date.now()
+//         },
+//       });
+//     } catch (error) {
+//       console.error(`Error Storing ${storageKeys.PROJECT_DETAILS_CACHE_KEY(projectKey)}:`, error)
+//     }
+//     return data;
+//   },
+//   /***
+//    * END PROJECT DETAILS RELATED METHODS
+//    */
+
+//   /***
+//    * USER DETAILS RELATED METHODS
+//    */
+//   getIssuesByUserKey: async (userKey) => {
+//     const issues = await apiService.fetchAllIssuess({ assignee: userKey });
+//     const sortedIssues = issues.sort((a, b) => new Date(b.updated) - new Date(a.updated));
+//     const shrinkedIssues = sortedIssues.map((issue) => {
+//       const sprint = issue.sprints ? issue.sprints.find(s => s.state.toLowerCase() === 'closed') || null : null;
+//       return {
+//         key: issue.key,
+//         summary: issue.summary,
+//         status: issue.status,
+//         updated: issue.updated,
+//         created: issue.created,
+//         startdate: issue.startdate,
+//         resolutiondate: issue.resolutiondate,
+//         duedate: issue.duedate,
+//         issuetype: issue.issuetype,
+//         storyPoints: issue.storyPoints,
+//         project: issue.project.name,
+//         sprint: sprint ? sprint.name : null,
+//       };
+//     });
+
+//     return { issues: shrinkedIssues };
+//   },
+//   getKPIsByUserKey: async (userKey) => {
+//     try {
+//       const cachedData = await invoke("getStoredValue", { key: storageKeys.USER_DETAILS_CACHE_KEY(userKey) });
+//       if (isValidCache(cachedData)) {
+//         return cachedData.data;
+//       }
+//     } catch (error) {
+//       console.error(`Error getting stored ${storageKeys.USER_DETAILS_CACHE_KEY(userKey)}:`, error)
+//     }
+//     const user = await invoke("getUserByKey", { userKey: userKey });
+//     const issues = await apiService.fetchAllIssuess({ assignee: userKey });
+//     const projects = Array.from(new Set(issues.map(issue => JSON.stringify(issue.project)))).map(projectString => JSON.parse(projectString));
+//     const kpis = calculateUserKPIs({issues, user: user.displayName})
+    
+//     const sortedIssues = issues.sort((a, b) => new Date(b.updated) - new Date(a.updated));
+//     const issuesByType = sortedIssues.reduce((acc, issue) => {
+//       acc[issue.issuetype] = (acc[issue.issuetype] || 0) + 1;
+//       return acc;
+//     }, {});
+//     const resolutionTimes = sortedIssues.reduce((acc, issue) => {
+//       if (issue.resolutiondate) {
+//           const resolutionTime = (new Date(issue.resolutiondate) - new Date(issue.created)) / (1000 * 60 * 60 * 24);
+//           acc[issue.issuetype] = (acc[issue.issuetype] || []).concat(resolutionTime);
+//       }
+//       return acc;
+//     }, {});
+//     const cycleTimes = [];
+//     const leadTimes = [];
+//     sortedIssues.forEach(issue => {
+//       if (issue.resolutiondate) {
+//           const createdDate = new Date(issue.created);
+//           const resolutionDate = new Date(issue.resolutiondate);
+//           const leadTime = (resolutionDate - createdDate) / (1000 * 60 * 60 * 24);
+//           leadTimes.push({
+//               date: resolutionDate.toISOString().split('T')[0],
+//               time: leadTime
+//           });
+
+//           if (issue.startdate) {
+//               const startDate = new Date(issue.startdate);
+//               const cycleTime = (resolutionDate - startDate) / (1000 * 60 * 60 * 24);
+//               cycleTimes.push({
+//                   date: resolutionDate.toISOString().split('T')[0],
+//                   time: cycleTime
+//               });
+//           }
+//       }
+//     });
+    
+//     const shrinkedIssues = sortedIssues.map((issue) => {
+//       const sprint = issue.sprints ? issue.sprints.find(s => s.state.toLowerCase() === 'closed') || null : null;
+//       return {
+//         key: issue.key,
+//         summary: issue.summary,
+//         status: issue.status,
+//         updated: issue.updated,
+//         created: issue.created,
+//         startdate: issue.startdate,
+//         resolutiondate: issue.resolutiondate,
+//         duedate: issue.duedate,
+//         issuetype: issue.issuetype,
+//         storyPoints: issue.storyPoints,
+//         project: issue.project.name,
+//         sprint: sprint ? sprint.name : null,
+//       };
+//     });
+    
+//     const data = { projects, kpis, user, issues: shrinkedIssues };
+    
+//     try {
+//       await invoke("saveStoredValue", { 
+//         key: storageKeys.USER_DETAILS_CACHE_KEY(userKey), 
+//         value: {
+//           data: { projects, kpis, user, issuesByType, resolutionTimes, cycleTimes, leadTimes },
+//           timestamp: Date.now()
+//         },
+//       });
+//     } catch (error) {
+//       console.error(`Error getting stored ${storageKeys.USER_DETAILS_CACHE_KEY(userKey)}:`, error)
+//     }
+//     return data;
+//   },
+//   /***
+//    * END USER DETAILS RELATED METHODS
+//   */
+//   /***
+//    * REPORT RELATED METHODS
+//   */
+//   generateReport: async (filters) => {
+//     try {
+//       console.log("filters", filters)
+//       const { 
+//         reportType, 
+//         startDate, 
+//         endDate, 
+//         projectIds, 
+//         userIds, 
+//         issueTypes, 
+//         sprintIds, 
+//         priorities, 
+//         statuses 
+//       } = filters;
+
+//       const issues = await apiService.fetchAllIssuess({createdStart: startDate, createdEnd: endDate, projectIds: projectIds, userIds: userIds, sprintIds: sprintIds, issueTypes: issueTypes, priorities: priorities, statuses: statuses });
+
+//       switch (reportType) {
+//         case 'Issues Report':
+//           return processIssuesReport(issues);
+//         case 'Project Performance Report':
+//           return processProjectPerformance(issues);
+//         case 'User Performance Report':
+//           return processUserPerformance(issues);
+//         default:
+//           throw new Error('Unknown report type');
+//       }
+//     } catch (error) {
+//       console.error('Error generating report:', error);
+//     }
+//   },
+//   getScheduledReports: async () => {
+//     const reports = await invoke("getStoredValue", { key: storageKeys.SCHEDULED_REPORTS });
+//     if (reports && Object.keys(reports).length > 0) return reports;
+//     return [];
+//   },
+//   createScheduledReport: async (reportData) => {
+//     const reports = await apiService.getScheduledReports();
+//     const newReport = { id: Date.now().toString(), ...reportData };
+//     reports.push(newReport);
+//     await invoke("saveStoredValue", { 
+//       key: storageKeys.SCHEDULED_REPORTS,
+//       value: reports,
+//     });
+//     return newReport;
+//   },
+//   updateScheduledReport: async (reportId, reportData) => {
+//     const reports = await apiService.getScheduledReports();
+//     const index = reports.findIndex(report => report.id === reportId);
+//     if (index !== -1) {
+//       reports[index] = { ...reports[index], ...reportData };
+//       await invoke("saveStoredValue", { 
+//         key: storageKeys.SCHEDULED_REPORTS,
+//         value: reports,
+//       });
+//       return reports[index];
+//     }
+//     throw new Error('Report not found');
+//   },
+//   deleteScheduledReport: async (reportId) => {
+//     const reports = await apiService.getScheduledReports();
+//     const updatedReports = reports.filter(report => report.id !== reportId);
+//     await invoke("saveStoredValue", { 
+//       key: storageKeys.SCHEDULED_REPORTS,
+//       value: updatedReports,
+//     });
+//   },
+//   /***
+//    * END REPORT RELATED METHODS
+//   */
+//   deleteAllStorage: async () => {
+//     try {
+//       await invoke("deleteAllStorage");
+//     } catch (error) {
+//       console.error(`Error getting stored ${storageKeys.USER_DETAILS_CACHE_KEY(userKey)}:`, error)
+//     }
+//   },
+// }
+// const processIssuesReport = (issues) => {
+//   return issues.map(issue => {
+//     let sprints = 'No Sprints';
+//     if (issue.sprints) {
+//       const sprintsArray = issue.sprints.map(s => `${s.name}`);
+//       sprints = sprintsArray.join(', ');
+//     }
+    
+//     return ({
+//       key: issue.key,
+//       summary: issue.summary,
+//       project: issue.project.name,
+//       assignee: issue.assignee ? issue.assignee.displayName : 'Unassigned',
+//       creator: issue.creator || 'Unkown',
+//       reporter: issue.reporter || 'Unkown',
+//       sprints: sprints,
+//       status: issue.status,
+//       created: issue.created,
+//       updated: issue.updated,
+//       startdate: issue.startdate || 'Not Yet',
+//       resolutiondate: issue.resolutiondate || 'Not Yet',
+//       duedate: issue.duedate || 'Not Set',
+//       delay: `${getIssueDelay(issue)} days`,
+//     })
+//   });
+// }
+// const getIssueDelay = (issue) => {
+//   const dueDate = issue.duedate ? new Date(issue.duedate) : null;
+//   const resolved = issue.resolutiondate ? new Date(issue.resolutiondate) : new Date();
+
+//   if (!dueDate) {
+//     return 0;
+//   }
+
+//   return Math.ceil((resolved.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+// }
+// const processProjectPerformance = (issues) => {
+//   const projects = Array.from(new Set(issues.map(issue => JSON.stringify(issue.project)))).map(projectString => JSON.parse(projectString));
+//   const projectKpis = [];
+//   projects.map(project => {
+//     const projectIssues = issues.filter((i) => i.project.key === project.key);
+//     const sprints = Array.from(new Set(projectIssues.filter(issue => issue.sprints).flatMap(issue => issue.sprints).map(sprint => JSON.stringify(sprint)))).map(sprintString => JSON.parse(sprintString));
+//     projectKpis.push(calculateProjectKPIs({issues: projectIssues, sprints, project}));
+//   });
+//   return projectKpis;
+// }
+// const processUserPerformance = (issues) => {
+//   const users = Array.from(new Set(issues.filter(issue => issue.assignee).map(issue => JSON.stringify(issue.assignee)))).map(userString => JSON.parse(userString));
+//   const userKpis = [];
+//   users.map(user => {
+//     const userIssues = issues.filter((i) => i.assignee  !== null && i.assignee.accountId === user.accountId);
+//     userKpis.push(calculateUserKPIs({issues: userIssues, user: user.displayName}));
+//   });
+//   return userKpis;
+// }
+
+// const isValidCache = (cachedData) => {
+//   return (
+//     cachedData && 
+//     Object.keys(cachedData).length > 0 && 
+//     cachedData.data && 
+//     cachedData.timestamp &&
+//     !isCacheExpired(cachedData.timestamp)
+//   );
+// }
+// const isCacheExpired = (timestamp) => {
+//   return Date.now() - timestamp > storageKeys.CACHE_TTL;
+// }
+
+// const getSprintsForBoards = async (boards) => {
+//   const sprintPromises = boards.map(async (board) => {
+//     const boardId = board.id;
+//     const projectName = board.location.projectName;
+//     const sprintsJson = await invoke("getSprintsForBoard", { boardId });
+//     return jiraDataParser.extractSprints(sprintsJson, projectName);
+//   });
+
+//   const sprintsArrays = await Promise.all(sprintPromises);
+//   return sprintsArrays.flat();
+// }
+// const getUsersKpis = async (startDate, endDate, users) => {
+//   const kpisPromises = users.map(async (user) => {
+//     const userIssues = await apiService.fetchAllIssuess({ updatedStart: startDate, updatedEnd: endDate, assignee: user.userKey });
+//     return calculateUserKPIs({issues: userIssues, user: user.displayName});
+//   });
+
+//   const kpisArrays = await Promise.all(kpisPromises);
+//   return kpisArrays.flat();
+// }
+
+// export async function fetchConfig() {
+//   try {
+//     const result = await invoke("getConfig");
+//     return result;
+//   } catch (error) {
+//     console.error("Error fetching config:", error);
+//     throw error;
+//   }
+// }
+
+// export async function saveConfig(config) {
+//   try {
+//     const result = await invoke("saveConfig", { config });
+//     return result;
+//   } catch (error) {
+//     console.error("Error saving config:", error);
+//     throw error;
+//   }
+// }

@@ -1,0 +1,42 @@
+modules:
+  jira:globalPage:
+    - key: forge-ng-hello-world-page
+      resource: main
+      resolver:
+        function: resolver
+      title: Smart MS Jira Kpis
+  function:
+    - key: resolver
+      handler: index.handler
+    - key: scheduled-task-email
+      handler: scheduled-task.runScheduledReports
+  scheduledTrigger:
+    - key: run-scheduled-reports
+      function: scheduled-task-email
+      interval: hour
+resources:
+  - key: main
+    path: static/frontend/build # static/ng-build/browser #
+    tunnel:
+      port: 3000
+permissions:
+  external:
+    fetch:
+      backend:
+        - https://express-redis-email.onrender.com
+  scopes:
+    - read:jira-work
+    - write:jira-work
+    - storage:app
+    - read:jira-user
+    - read:sprint:jira-software
+    - read:project:jira
+    - read:board-scope:jira-software
+    - read:board-scope.admin:jira-software
+  content:
+    styles:
+      - unsafe-inline
+app:
+  runtime:
+    name: nodejs18.x
+  id: ari:cloud:ecosystem::app/8e28d19f-c063-4a03-ba52-883515197fa4
