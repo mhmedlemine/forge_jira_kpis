@@ -1,3 +1,4 @@
+import { backendFunctions } from "./backendFunctions";
 export const helpers = {
   generateJQL: ({
     project = null,
@@ -107,5 +108,69 @@ export const helpers = {
     
     const sizeInKB = (sizeInBytes / 1024).toFixed(2);
     return parseFloat(sizeInKB);
+  },
+  cleanJqlCharacter: (jql) => {
+    const jqlReplacements = {
+      '(': '!',
+      ')': '?',
+      ' ': '.',
+      "'": '0',
+      '=': '#',
+      '>': '_',
+      '<': '-',
+      ',': ':'
+    };
+    return jql.split('').map(char => jqlReplacements[char] || char).join('');
+  },
+  setCache: async (key, value) => {
+    try {
+      const jsonData = JSON.stringify(value);
+      const totalSize = new Blob([jsonData]).size;
+      const chunkSize = 1024 * 200;
+      const totalChunks = Math.ceil(totalSize / chunkSize);
+
+      
+
+      await backendFunctions.initializeDataTransfer( { totalChunks, totalSize, key });
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkSize;
+        const end = Math.min(start + chunkSize, totalSize);
+        const chunk = jsonData.slice(start, end);
+
+        await backendFunctions.setCacheDataChunk( { chunkIndex: i, chunk, key });
+      }
+
+      
+    } catch (error) {
+      console.error(`Error setting cache for key (${key}):`, error);
+      throw error;
+    }
+  },
+  getCache: async (key) => {
+    try {
+      const result = await backendFunctions.getCachedData( { key });
+      
+      if (result === null || result === undefined || Object.keys(result).length === 0) return null;
+      if (result && result.isComplete) {
+        return result.data;
+      } else {
+        const { totalChunks, totalSize, totalResponseChunks } = result;
+        let assembledData = '';
+
+        for (let i = 0; i < totalResponseChunks; i++) {
+          const chunkResponse = await backendFunctions.getCachedDataChunk( { key, chunkIndex: i, metadata: result });
+
+          assembledData += chunkResponse.chunk;
+
+          if (chunkResponse.isLastChunk) break;
+        }
+        
+        const parsedData = JSON.parse(assembledData);
+        return parsedData;
+      } 
+    } catch (error) {
+      console.error(`Error getting cache for key (${key}):`, error);
+    }
   },
 };

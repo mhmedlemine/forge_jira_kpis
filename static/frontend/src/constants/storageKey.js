@@ -1,7 +1,7 @@
 import { view } from "@forge/bridge";
 
 const context = view.getContext();
-export const cloudId = (await context).cloudId;
+export const cloudId = "";//(await context).cloudId;
 console.log("cloudId: ", cloudId)
 
 export const storageKeys = {
