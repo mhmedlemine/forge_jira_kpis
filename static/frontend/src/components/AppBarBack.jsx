@@ -1,8 +1,8 @@
-import React from 'react';
 import { AppBar, Toolbar, Typography, IconButton } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 const AppBarBack = ({ title, navigate }) => {
+
   const handleBack = () => {
     navigate('main', { });
   };
@@ -13,13 +13,13 @@ const AppBarBack = ({ title, navigate }) => {
         elevation={0} 
         sx={{ 
             backgroundColor: 'transparent',
-            color: 'black'
         }}
+        color={'default'}
     >
       <Toolbar>
         <IconButton
           edge="start"
-          color="inherit"
+          // color="inherit"
           aria-label="back"
           onClick={handleBack}
           sx={{ mr: 2 }}

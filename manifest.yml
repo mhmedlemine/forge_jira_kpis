@@ -10,10 +10,18 @@ modules:
       handler: index.handler
     - key: scheduled-task-email
       handler: scheduled-task.runScheduledReports
+    - key: consumer-function
+      handler: consumer.handler
   scheduledTrigger:
     - key: run-scheduled-reports
       function: scheduled-task-email
       interval: hour
+  consumer:
+    - key: queue-consumer
+      queue: cache-queue
+      resolver:
+        function: consumer-function
+        method: event-listener
 resources:
   - key: main
     path: static/frontend/build # static/ng-build/browser #

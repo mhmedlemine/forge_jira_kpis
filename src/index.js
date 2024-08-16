@@ -5,6 +5,9 @@ import { cacheService } from './utils/cacheService';
 
 const resolver = new Resolver();
 
+resolver.define('getCacheSecret', async () => {
+  return "Lz7uc3arn887JgkLv3MENuQu7OGtBUsE4zKV1P3x1rxWBsNdt1Qvg/iYAVXWsAa8";
+});
 resolver.define('getProjects', async () => {
   return await jiraDataService.fetchAllProjects();
 });
@@ -54,17 +57,20 @@ resolver.define('deleteAllStorage', async () => {
     let cursor;
     let deletedCount = 0;
 
-    while (hasMore) {
-      const result = await storage.query().getMany(cursor ? { cursor } : undefined);
+    do {
+      const result = await storage.query().cursor(cursor).getMany();
+      console.error('deleteAllStorage result', result);
       for (const [key, value] of Object.entries(result.results)) {
         await storage.delete(value.key);
         deletedCount++;
         console.log(`Deleted key: ${value.key}`);
       }
 
-      hasMore = result.hasMore;
-      cursor = result.cursor;
-    }
+      //console.error('deleteAllStorage result.hasMore', result.hasMore);
+      console.error('deleteAllStorage result.cursor', result.nextCursor);
+      //hasMore = result.hasMore;
+      cursor = result.nextCursor;
+    } while (cursor)
 
     console.log(`All storage deleted successfully. Total keys deleted: ${deletedCount}`);
   } catch (error) {

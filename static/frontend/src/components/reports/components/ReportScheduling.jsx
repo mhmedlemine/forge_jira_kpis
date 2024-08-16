@@ -23,14 +23,16 @@ import {
 import { Edit, Delete, Add } from '@mui/icons-material';
 import { apiService } from '../../../utils/api';
 
+const weekDays = ["Sunday", "Monday", "Tuesday", "Wednsday", "Thursday", "Firaday", "Saturday"];
+
 const ReportScheduling = ({ filters }) => {
     const [scheduledReports, setScheduledReports] = useState([]);
     const [openDialog, setOpenDialog] = useState(false);
     const [editingReport, setEditingReport] = useState(null);
     const [reportName, setReportName] = useState('');
     const [frequency, setFrequency] = useState('');
-    const [weekDay, setWeekDay] = useState(1);
-    const [monthDay, setMonthDay] = useState(1);
+    const [weekDay, setWeekDay] = useState(new Date().getDay());
+    const [monthDay, setMonthDay] = useState(new Date().getMonth() + 1);
     const [time, setTime] = useState('');
     const [recipients, setRecipients] = useState('');
     const [loading, setLoading] = useState(false);
@@ -122,7 +124,7 @@ const ReportScheduling = ({ filters }) => {
                     <ListItem key={report.id}>
                         <ListItemText
                             primary={report.name}
-                            secondary={`${report.frequency}, ${weekDay || monthDay} at ${report.time}`}
+                            secondary={`${report.frequency}, ${report.frequency !== 'Daily' ? report.frequency === 'Weekly' ? weekDay[weekDay] : monthDay : ''} at ${report.time}`}
                         />
                         {loading ? (
                             <CircularProgress size={20} />
@@ -192,19 +194,21 @@ const ReportScheduling = ({ filters }) => {
                                     label="Month Day"
                                     onChange={(e) => setMonthDay(e.target.value)}
                                 >
-                                    {[...Array(31)].map((e, i) => (<MenuItem value={i}>{i}</MenuItem>))}
+                                    {[...Array(31)].map((e, i) => (<MenuItem value={i+1}>{i+1}</MenuItem>))}
                                 </Select>
                             </FormControl>
                         </Grid>}
                         <Grid item xs={12}>
-                            <TextField
-                                fullWidth
-                                label="Time"
-                                type="time"
-                                value={time}
-                                onChange={(e) => setTime(e.target.value)}
-                                InputLabelProps={{ shrink: true }}
-                            />
+                            <FormControl fullWidth>
+                                <InputLabel>Hour of the day</InputLabel>
+                                <Select
+                                    value={time}
+                                    label="Hour of day"
+                                    onChange={(e) => setTime(e.target.value)}
+                                >
+                                    {[...Array(24)].map((e, i) => (<MenuItem value={i}>{i < 10 ? `0${i}` : i}</MenuItem>))}
+                                </Select>
+                            </FormControl>
                         </Grid>
                         <Grid item xs={12}>
                             <TextField

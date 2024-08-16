@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 
 const ReportFilters = ({
+    loadingFilters,
     startDate,
     setStartDate,
     endDate,
@@ -35,6 +36,9 @@ const ReportFilters = ({
     selectedStatus,
     setSelectedStatus,
     generateReport,
+    filterPerProjects,
+    filterPerUsers,
+    filterPerSprints,
     isLoading,
 }) => {
     return (
@@ -63,20 +67,21 @@ const ReportFilters = ({
                 <FormControl fullWidth>
                     <InputLabel>Project</InputLabel>
                     <Select
+                        disabled={loadingFilters}
                         multiple
                         value={selectedProject}
-                        onChange={(e) => setSelectedProject(e.target.value)}
+                        onChange={(e) => filterPerProjects(e.target.value)}
                         label="Project"
                         renderValue={(selected) => (
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                                 {selected.map((value) => (
-                                    <Chip key={value} label={projects.find(p => p.id === value)?.name} />
+                                    <Chip key={value} label={projects.find(p => p.key === value || p.projectKey === value)?.name} />
                                 ))}
                             </Box>
                         )}
                     >
                         {projects.map((project) => (
-                            <MenuItem key={project.id} value={project.id}>
+                            <MenuItem key={project.projectKey || project.key} value={project.projectKey || project.key}>
                                 {project.name}
                             </MenuItem>
                         ))}
@@ -87,20 +92,21 @@ const ReportFilters = ({
                 <FormControl fullWidth>
                     <InputLabel>User</InputLabel>
                     <Select
+                        disabled={loadingFilters}
                         multiple
                         value={selectedUser}
-                        onChange={(e) => setSelectedUser(e.target.value)}
+                        onChange={(e) => filterPerUsers(e.target.value)}
                         label="User"
                         renderValue={(selected) => (
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                                 {selected.map((value) => (
-                                    <Chip key={value} label={users.find(u => u.userKey === value)?.displayName} />
+                                    <Chip key={value} label={users.find(u => u.userKey === value || u.accountId === value)?.displayName} />
                                 ))}
                             </Box>
                         )}
                     >
                         {users.map((user) => (
-                            <MenuItem key={user.userKey} value={user.userKey}>
+                            <MenuItem key={user.userKey || user.accountId} value={user.userKey || user.accountId}>
                                 {user.displayName}
                             </MenuItem>
                         ))}
@@ -111,6 +117,7 @@ const ReportFilters = ({
                 <FormControl fullWidth>
                     <InputLabel>Issue Type</InputLabel>
                     <Select
+                        disabled={loadingFilters}
                         multiple
                         value={selectedIssueType}
                         onChange={(e) => setSelectedIssueType(e.target.value)}
@@ -137,7 +144,7 @@ const ReportFilters = ({
                     <Select
                         multiple
                         value={selectedSprint}
-                        onChange={(e) => setSelectedSprint(e.target.value)}
+                        onChange={(e) => filterPerSprints(e.target.value)}
                         label="Sprint"
                         renderValue={(selected) => (
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
@@ -205,7 +212,7 @@ const ReportFilters = ({
             </Grid>
             <Grid item xs={12}>
                 <Button variant="contained" onClick={generateReport} fullWidth>
-                    {isLoading ? 'Generating...' : 'Generate Report'}
+                    {isLoading ? 'Generating...' : loadingFilters ? 'Loading Filter Params' : 'Generate Report'}
                 </Button>
             </Grid>
         </Grid>

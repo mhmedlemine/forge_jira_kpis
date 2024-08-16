@@ -6,23 +6,19 @@ export const backendFunctions = {
   getProjects: async () => {
     return await jiraDataService.fetchAllProjects();
   },
-  getProjectByKey: async ({ payload }) => {
-    const { projectKey } = payload;
+  getProjectByKey: async (projectKey) => {
     return await jiraDataService.fetchProjectByProjectKey(projectKey);
   },
   getUsers: async () => {
     return await jiraDataService.fetchAllUsers();
   },
-  getUserByKey: async ({ payload }) => {
-    const { userKey } = payload;
+  getUserByKey: async (userKey) => {
     return await jiraDataService.fetchUserByAccountId(userKey);
   },
-  getUsersByProjectKey: async ({ payload }) => {
-    const { projectKey } = payload;
+  getUsersByProjectKey: async (projectKey) => {
     return await jiraDataService.fetchUsersByProjectKey(projectKey);
   },
-  getIssues: async ({ payload }) => {
-    const { jqlQuery, startAt, maxResults, expand, fields } = payload;
+  getIssues: async (jqlQuery, startAt, maxResults, expand, fields) => {
     return await jiraDataService.fetchIssues({ jqlQuery, startAt, maxResults, expand, fields });
   },
   getIssueTypes: async () => {
@@ -37,12 +33,10 @@ export const backendFunctions = {
   getBoards: async () => {
     return await jiraDataService.fetchBoards();
   },
-  getBoardsForProject: async ({ payload }) => {
-    const { projectKey } = payload;
+  getBoardsForProject: async (projectKey) => {
     return await jiraDataService.fetchBoardsForProject(projectKey);
   },
-  getSprintsForBoard: async ({ payload }) => {
-    const { boardId } = payload;
+  getSprintsForBoard: async (boardId) => {
     return await jiraDataService.fetchSprintsForBoard(boardId);
   },
   
@@ -71,24 +65,19 @@ export const backendFunctions = {
   },
   
   // CACH MANAGEMENT
-  initializeDataTransfer: async ({ payload }) => {
-    const { totalChunks, totalSize, key } = payload;
+  initializeDataTransfer: async (totalChunks, totalSize, key) => {
     await cacheService.initializeTransfer(`${key}`, totalChunks, totalSize);
     return { status: 'transfer initialized' };
   },
-  setCacheDataChunk: async ({ payload }) => {
-    const { chunkIndex, chunk, key } = payload;
+  setCacheDataChunk: async (chunkIndex, chunk, key) => {
     await cacheService.storeCacheChunk(key, chunkIndex, chunk);
     return { status: 'chunk received' };
   },
-  getCachedData: async ({ payload }) => {
-    const { key } = payload;
+  getCachedData: async (key) => {
     const result = await cacheService.getCachedData(key);
     return result !== null ? result : undefined;
   },
-  getCachedDataChunk: async ({ payload }) => {
-    const { key, chunkIndex, metadata } = payload;
-  
+  getCachedDataChunk: async (key, chunkIndex, metadata) => {
     return await cacheService.getCachedDataChunk(key, chunkIndex, metadata);
   },
   // END CACH MANAGEMENT
@@ -96,8 +85,7 @@ export const backendFunctions = {
   
   
   
-  getAllCachedDataChunks: async ({ payload }) => {
-    const { key } = payload;
+  getAllCachedDataChunks: async (key) => {
     try {
       const result = await cacheService.getAllChachedChunks(key);
       return result !== null ? result : undefined;
@@ -106,8 +94,7 @@ export const backendFunctions = {
       throw error;
     }
   },
-  getCacheMetadata: async ({ payload }) => {
-    const { key } = payload;
+  getCacheMetadata: async (key) => {
     const metadata = await storage.get(`${key}:metadata`);
   
     return metadata;
@@ -117,8 +104,7 @@ export const backendFunctions = {
   
   
   
-  getCacheValue: async ({ payload }) => {
-    const { key, cacheType } = payload;
+  getCacheValue: async (key, cacheType) => {
     try {
       const value = await cacheService.getCacheValue(key, cacheType);
       return value !== null ? value : undefined;
@@ -127,8 +113,7 @@ export const backendFunctions = {
       throw error;
     }
   },
-  setCacheValue: async ({ payload }) => {
-    const { key, value, cacheType } = payload;
+  setCacheValue: async (key, value, cacheType) => {
     try {
       await cacheService.setCacheValue(key, value, cacheType);
       return { success: true };
@@ -137,8 +122,7 @@ export const backendFunctions = {
       throw error;
     }
   },
-  getStoredValue: async ({ payload }) => {
-    const { key } = payload;
+  getStoredValue: async (key) => {
     try {
       const value = await storage.get(key);
       return value;
@@ -147,8 +131,7 @@ export const backendFunctions = {
       throw error;
     }
   },
-  saveStoredValue: async ({ payload }) => {
-    const { key, value } = payload;
+  saveStoredValue: async (key, value) => {
     try {
       await storage.set(key, value);
       return { success: true };
@@ -173,8 +156,7 @@ export const backendFunctions = {
     }
   },
   
-  saveConfig: async ({ payload }) => {
-    const { config } = payload;
+  saveConfig: async (config) => {
     await storage.set('config', config);
     return { success: true };
   },

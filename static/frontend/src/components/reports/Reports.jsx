@@ -9,9 +9,10 @@ import { apiService } from '../../utils/api';
 
 const Reports = () => {
   const [loading, setLoading] = useState(true);
+  const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingReport, setLoadingReport] = useState(false);
   const [error, setError] = useState(null);
-  const [reportType, setReportType] = useState('');
+  const [reportType, setReportType] = useState('Issues Report');
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [projects, setProjects] = useState([]);
@@ -36,6 +37,68 @@ const Reports = () => {
     };
     fetchData();
   }, []);
+
+  const filterPerProjects = async (val) => {
+    setLoadingFilters(true);
+    setSelectedProject(val);
+    let issues = [];
+    if (val.length == 0) {
+      issues = await apiService.fetchUsersByProjects(val, selectedUser, selectedSprint);
+      const projectsData = Array.from(new Set(issues.map((issue) => JSON.stringify(issue.project)))).map((projectString) => JSON.parse(projectString));
+      setProjects(projectsData);
+    } else {
+      issues = await apiService.fetchUsersByProjects(val, [], []);
+    }
+
+    const usersData = Array.from(new Set(issues.filter((issue) => issue.assignee).map((issue) => JSON.stringify(issue.assignee)))).map((userString) => JSON.parse(userString));
+    const sprintsData = Array.from(new Set(issues.filter((issue) => issue.sprints).flatMap((issue) => issue.sprints).map((sprint) => JSON.stringify(sprint)))).map((sprintString) => JSON.parse(sprintString));
+    
+    setUsers(usersData);
+    setSprints(sprintsData); 
+    setLoadingFilters(false)
+  };
+
+  
+  const filterPerUsers = async (val) => {
+    setLoadingFilters(true)
+    setSelectedUser(val)
+    let issues = [];
+    if (val.length == 0) {
+      issues = await apiService.fetchUsersByProjects(selectedProject, val, selectedSprint);
+      const usersData = Array.from(new Set(issues.filter((issue) => issue.assignee).map((issue) => JSON.stringify(issue.assignee)))).map((userString) => JSON.parse(userString));
+      setUsers(usersData);
+    } else {
+      issues = await apiService.fetchUsersByProjects([], val, []);
+    }
+
+    const projectsData = Array.from(new Set(issues.map((issue) => JSON.stringify(issue.project)))).map((projectString) => JSON.parse(projectString));
+    const sprintsData = Array.from(new Set(issues.filter((issue) => issue.sprints).flatMap((issue) => issue.sprints).map((sprint) => JSON.stringify(sprint)))).map((sprintString) => JSON.parse(sprintString));
+    
+    setProjects(projectsData);
+    setSprints(sprintsData);
+    setLoadingFilters(false)
+  };
+
+  
+  const filterPerSprints = async (val) => {
+    setLoadingFilters(true);
+    setSelectedSprint(val)
+    let issues = [];
+    if (val.length == 0) {
+      issues = await apiService.fetchUsersByProjects(selectedProject, selectedUser, val);
+      const sprintsData = Array.from(new Set(issues.filter((issue) => issue.sprints).flatMap((issue) => issue.sprints).map((sprint) => JSON.stringify(sprint)))).map((sprintString) => JSON.parse(sprintString));
+      setSprints(sprintsData);
+    } else {
+      issues = await apiService.fetchUsersByProjects([], [], val);
+    }
+
+    const projectsData = Array.from(new Set(issues.map((issue) => JSON.stringify(issue.project)))).map((projectString) => JSON.parse(projectString));
+    const usersData = Array.from(new Set(issues.filter((issue) => issue.assignee).map((issue) => JSON.stringify(issue.assignee)))).map((userString) => JSON.parse(userString));
+
+    setProjects(projectsData);
+    setUsers(usersData);
+    setLoadingFilters(false);
+  };
 
   const getReportFiltersData = async () => {
     try {
@@ -89,6 +152,7 @@ const Reports = () => {
         <Typography variant="h4" gutterBottom>Reports</Typography>
         <ReportTypes reportType={reportType} setReportType={setReportType} />
         <ReportFilters
+          loadingFilters={loadingFilters}
           startDate={startDate}
           setStartDate={setStartDate}
           endDate={endDate}
@@ -113,6 +177,9 @@ const Reports = () => {
           setSelectedStatus={setSelectedStatus}
           generateReport={generateReport}
           isLoading={loadingReport}
+          filterPerProjects={filterPerProjects}
+          filterPerUsers={filterPerUsers}
+          filterPerSprints={filterPerSprints}
         />
         {reportData && <ReportDownload reportData={reportData} reportType={reportType} />}
         {reportData && <ReportPreview reportData={reportData} reportType={reportType} />}

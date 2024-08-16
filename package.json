@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@forge/bridge": "^3.5.0",
+    "@forge/events": "^0.8.39",
     "@forge/resolver": "1.5.35",
+    "dayjs": "^1.11.12",
     "pako": "^2.1.0",
     "react-router-dom": "^6.24.0"
   }

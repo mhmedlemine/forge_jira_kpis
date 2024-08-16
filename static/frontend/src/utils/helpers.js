@@ -1,5 +1,11 @@
 import { invoke } from "@forge/bridge";
+import { view } from '@forge/bridge';
+
 export const helpers = {
+  getJiraTheme: async () => {
+    const { theme } = await view.getContext();
+    return theme;
+  },
   generateJQL: ({
     project = null,
     assignee = null,
@@ -81,6 +87,52 @@ export const helpers = {
 
     return jql.join(" AND ");
   },
+  generateFilterPredicate: ({
+    project = null,
+    assignee = null,
+    createdStart = null,
+    createdEnd = null,
+    updatedStart = null,
+    updatedEnd = null,
+    status = null,
+    sprint = null,
+    timeFrame = null,
+    projectIds = [],
+    userIds = [],
+    issueTypes = [],
+    sprintIds = [],
+    priorities = [],
+    statuses = [],
+  }) => {
+    return (issue) => {
+      if (project && (!issue.project || issue.project.key !== project)) return false;
+      if (assignee && (!issue.assignee || issue.assignee.accountId !== assignee)) return false;
+      
+      if (createdStart && new Date(issue.created) < new Date(createdStart)) return false;
+      if (createdEnd && new Date(issue.created) > new Date(createdEnd)) return false;
+      
+      if (updatedStart && new Date(issue.updated) < new Date(updatedStart)) return false;
+      if (updatedEnd && new Date(issue.updated) > new Date(updatedEnd)) return false;
+      
+      if (status && issue.status !== status) return false;
+      if (sprint && (!issue.sprints || !issue.sprints.some(s => s.id === sprint))) return false;
+      
+      if (projectIds.length > 0 && (!issue.project || !projectIds.includes(issue.project.key))) return false;
+      if (userIds.length > 0 && (!issue.assignee || !userIds.includes(issue.assignee.accountId))) return false;
+      if (issueTypes.length > 0 && !issueTypes.includes(issue.issuetype)) return false;
+      if (sprintIds.length > 0 && (!issue.sprints || !issue.sprints.some(s => sprintIds.includes(s.id)))) return false;
+      if (priorities.length > 0 && !priorities.includes(issue.priority)) return false;
+      if (statuses.length > 0 && !statuses.includes(issue.status)) return false;
+      
+      if (timeFrame) {
+        const timeFrameDate = new Date();
+        timeFrameDate.setDate(timeFrameDate.getDate() - timeFrame);
+        if (new Date(issue.updated) < timeFrameDate) return false;
+      }
+      
+      return true;
+    };
+  },
   random_rgba: () => {
     const o = Math.round,
       r = Math.random,
@@ -111,8 +163,8 @@ export const helpers = {
   },
   cleanJqlCharacter: (jql) => {
     const jqlReplacements = {
-      '(': '!',
-      ')': '?',
+      '(': '0',
+      ')': '0',
       ' ': '.',
       "'": '0',
       '=': '#',

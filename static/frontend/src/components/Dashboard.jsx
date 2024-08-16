@@ -20,7 +20,7 @@ import {
 
 Chart.register(...registerables);
 
-const Dashboard = () => {
+const Dashboard = ({ allIssues }) => {
     const [kpiOverview, setKpiOverview] = useState({
         activeProjects: 0,
         activeMembers: 0,
@@ -66,11 +66,16 @@ const Dashboard = () => {
     const [userRowsPerPage, setUserRowsPerPage] = useState(5);
 
     useEffect(() => {
-        getKpiOverview();
+        getAll();
+    }, []);
+
+    const getAll = async () => {
+        // const issues = await apiService.fetchAllIssuess({});
+        getKpiOverview(allIssues);
         getResolutionTimeChartData();
         getSprintVelocityChartData();
         getDefectDensityChartData();
-    }, []);
+    };
 
     useEffect(() => {
         if (resolutionTimeChartData) {
@@ -96,10 +101,10 @@ const Dashboard = () => {
         };
     }, [resolutionTimeChartData, sprintVelocityChartData, defectDensityChartData]);
 
-    const getKpiOverview = async () => {
+    const getKpiOverview = async (issues) => {
         setLoading(prev => ({ ...prev, kpiOverview: true }));
         try {
-            const data = await apiService.fetchKPIsOverview();
+            const data = await apiService.fetchKPIsOverview(issues);
             console.log("data", data)
             setKpiOverview(data.kpisOverview);
             setProjectData(data.projectKpis);

@@ -6,7 +6,6 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 
 const UserKpis = ({ userKpis, goToUserDetails }) => {
-    console.log("userKpis", userKpis)
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [searchTerm, setSearchTerm] = useState('');

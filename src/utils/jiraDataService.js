@@ -150,7 +150,13 @@ export const jiraDataService = {
       const response = await api
         .asApp()
         .requestJira(
-          route`/rest/api/2/search?jql=${jqlQuery}&startAt=${startAt}&maxResults=${maxResults}&expand=${expand}&fields=${fields}`
+          route`/rest/api/2/search?jql=${jqlQuery}&startAt=${startAt}&maxResults=${maxResults}&expand=${expand}&fields=${fields}`,
+          {
+            headers: {
+              'Accept-Language': 'en-US',
+              'X-Force-Accept-Language': 'true'
+            }
+          }
         );
       
       if (response.status !== 200) {

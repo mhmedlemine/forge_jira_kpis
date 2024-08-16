@@ -7,7 +7,7 @@ import SearchIcon from '@mui/icons-material/Search';
 
 const UserList = ({ users, goToUserDetails }) => {
     const [page, setPage] = useState(0);
-    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [rowsPerPage, setRowsPerPage] = useState(5);
     const [searchTerm, setSearchTerm] = useState('');
 
     const filteredUsers = users.filter(
@@ -21,7 +21,7 @@ const UserList = ({ users, goToUserDetails }) => {
     };
 
     const handleChangeRowsPerPage = (event) => {
-        setRowsPerPage(parseInt(event.target.value, 10));
+        setRowsPerPage(parseInt(event.target.value, 5));
         setPage(0);
     };
 

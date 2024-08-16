@@ -1,5 +1,5 @@
-import React from 'react';
-import { Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TextField, Select, MenuItem } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Button, Table, TableBody, TableCell, TableContainer, TablePagination, TableHead, TableRow, Paper, TextField, Select, MenuItem } from '@mui/material';
 
 const ProjectList = ({
   projects,
@@ -13,6 +13,18 @@ const ProjectList = ({
   setFilterValue,
   loading
 }) => {
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+  
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+      setRowsPerPage(parseInt(event.target.value, 5));
+      setPage(0);
+  };
+
   return (
     <div className="project-list">
       <div className="project-search-filters">
@@ -64,7 +76,8 @@ const ProjectList = ({
                 <TableCell colSpan={6}>No projects found.</TableCell>
               </TableRow>
             ) : (
-              projects.map((project) => (
+              projects
+              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((project) => (
                 <TableRow key={project.projectKey}>
                   <TableCell>
                     <Button variant="" onClick={() => goToProjectDetails(project.projectKey)}>
@@ -80,10 +93,20 @@ const ProjectList = ({
                   </TableCell>
                 </TableRow>
               ))
+              
             )}
           </TableBody>
         </Table>
       </TableContainer>
+      <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
+          component="div"
+          count={projects.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+      />
     </div>
   );
 };

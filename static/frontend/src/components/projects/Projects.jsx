@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { CircularProgress } from '@mui/material';
 import { apiService } from '../../utils/api';
 import ProjectList from './components/ProjectList';
 import ProjectStatistics from './components/ProjectStatistics';
 import ProjectCharts from './components/ProjectCharts';
+import ProjectComparison from './components/ProjectComparison';
 
 const Projects = ({ navigate }) => {
   const [projects, setProjects] = useState([]);
@@ -12,14 +14,18 @@ const Projects = ({ navigate }) => {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [filterValue, setFilterValue] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadingKpis, setLoadingKpis] = useState(true);
   const [statistics, setStatistics] = useState({
     totalProjects: 0,
     activeProjects: 0,
     completedProjects: 0,
   });
+  const [projectKpis, setProjectKpis] = useState([]);
+  const [selectedComparison, setSelectedComparison] = useState('total-issues');
 
   useEffect(() => {
     getProjects();
+    getProjectKpis();
   }, []);
 
   const getProjects = async () => {
@@ -37,6 +43,18 @@ const Projects = ({ navigate }) => {
     }
     setLoading(false);
   };
+
+  const getProjectKpis = async () => {
+    setLoading(true);
+    try {
+      const data = await apiService.getAllProjectsKpis();
+      console.log("projectKpis:", data);
+      setProjectKpis(data);
+    } catch (error) {
+      console.error("Error getting all projects kpis:", error);
+    }
+    setLoadingKpis(false);
+  }
 
   const getProjectStatistics = (projectsData) => {
     const totalProjects = projectsData.length;
@@ -88,6 +106,10 @@ const Projects = ({ navigate }) => {
         loading={loading}
       />
       <ProjectStatistics statistics={statistics} />
+
+      {loadingKpis && <CircularProgress size={20} />}
+      {!loadingKpis && <ProjectComparison projectKpis={projectKpis} selectedComparison={selectedComparison} setSelectedComparison={setSelectedComparison} />}
+      
       <ProjectCharts projects={projects} categories={categories} />
     </div>
   );

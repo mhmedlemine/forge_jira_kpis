@@ -1,3 +1,5 @@
+import api, { route, storage } from "@forge/api";
+import dayjs from 'dayjs';
 import { jiraDataParser } from "./jiraDataParser";
 import { helpers } from "./helpers";
 import { backendFunctions } from "./backendFunctions";
@@ -7,13 +9,116 @@ import {
   kpiCalculations,
 } from "./kpiCalculations";
 import { storageKeys } from "../constants/storageKey";
+import { Queue } from "@forge/events";
+import { cacheService } from "./cacheService";
 
+
+export async function cacheAllData(startAt = 0) {
+    try {
+        console.log("LAUNCHING CACHE ALL DATA...");
+        const allIssues = await apiService.fetchAllIssuess({}, false, startAt);
+        apiService.fetchAllProjects();
+        apiService.fetchAllSprints();
+        apiService.fetchAllUsers();
+        console.log("CACHE ALL DATA GOT ALL ISSUES", allIssues );
+    //     const allProjects = await apiService.fetchAllProjects(false);
+    //     console.log("CACHE ALL DATA GOT ALL PROJECTS", allProjects.length );
+    //     const allUsers = await apiService.fetchAllUsers(false);
+    //     console.log("CACHE ALL DATA GOT ALL USERS", allUsers.length );
+    //     const allSprints = await apiService.fetchAllSprints(false);
+    //     console.log("CACHE ALL DATA GOT ALL SPRINTS", allSprints.length );
+    //     /***
+    //    * DASHBOARD RELATED METHODS
+    //    */
+    //     const kpisOverview = await apiService.fetchKPIsOverview();
+    //     console.log("CACHE ALL DATA GOT kpisOverview", kpisOverview );
+    //     const resolutionTimeChartData = await apiService.fetchResolutionTimeChartData(30);
+    //     console.log("CACHE ALL DATA GOT resolutionTimeChartData", resolutionTimeChartData );
+    //     await apiService.fetchResolutionTimeChartData(60);
+    //     await apiService.fetchResolutionTimeChartData(90);
+    //     const sprintVelocityChartData = await apiService.fetchSprintVelocityChartData(5);
+    //     console.log("CACHE ALL DATA GOT sprintVelocityChartData", sprintVelocityChartData );
+    //     await apiService.fetchSprintVelocityChartData(10);
+    //     await apiService.fetchSprintVelocityChartData(20);
+    //     const defectDensityChartData = await apiService.fetchDefectDensityChartData(30);
+    //     console.log("CACHE ALL DATA GOT defectDensityChartData", defectDensityChartData );
+    //     await apiService.fetchDefectDensityChartData(60);
+    //     await apiService.fetchDefectDensityChartData(90);
+    //     /***
+    //    * END DASHBOARD RELATED METHODS
+    //    */
+    //     /***
+    //      * USERS DASHBOARD RELATED METHODS
+    //      */
+    //     const startDate = dayjs().subtract(1, 'month');
+    //     const endDate = dayjs();
+    //     const formattedStartDate = startDate.format('YYYY-MM-DD');
+    //     const formattedEndDate = endDate.format('YYYY-MM-DD');
+    //     const usersDashboardData = await apiService.getUsersDashboardData(formattedStartDate, formattedEndDate);
+    //     console.log("CACHE ALL DATA GOT usersDashboardData", usersDashboardData );
+    //     const usersDashboardKpisData = await apiService.getUsersDashboardKpisData(formattedStartDate, formattedEndDate, allUsers);
+    //     console.log("CACHE ALL DATA GOT usersDashboardKpisData", usersDashboardKpisData );
+    //     /***
+    //      * END USERS DASHBOARD RELATED METHODS
+    //      */
+    //     /***
+    //      * PROJECT DETAILS RELATED METHODS
+    //      */
+    //     allProjects.forEach(async (project) => {
+    //         await apiService.getKPIsByProjectKey(project.projectKey);
+    //     })
+    //     /***
+    //      * END PROJECT DETAILS RELATED METHODS
+    //      */
+    //     /***
+    //      * USER DETAILS RELATED METHODS
+    //      */
+    //     allUsers.forEach(async (user) => {
+    //         await apiService.getKPIsByUserKey(user.userKey);
+    //     })
+    //     /***
+    //      * END USER DETAILS RELATED METHODS
+    //      */
+    //     /***
+    //      * REPORT RELATED METHODS
+    //      */
+    //     const issueTypes = await apiService.fetchIssueTypes();
+    //     const issuePriorities = await apiService.fetchIssuePriorities();
+    //     const issuesStatuses = await apiService.fetchIssueStatuses();
+    
+    //     const data = {
+    //       allProjects,
+    //       allUsers,
+    //       allSprints,
+    //       issueTypes,
+    //       issuePriorities,
+    //       issuesStatuses,
+    //     };
+    //     await helpers.setCache(storageKeys.REPORT_SCREEN_REDIS, data);
+        /***
+         * END REPORT RELATED METHODS
+         */
+        console.log("COMPLETED CACHE ALL DATA.");
+    } catch (error) {
+        console.error("ERROR CACHE ALL DATA:", error);
+    }
+}
 export const apiService = {
   /***
    * JIRA DATA FETCH METHODS
    */
-  fetchAllProjects: async () => {
+  fetchAllProjects: async (fromCache = true,) => {
     try {
+      if (fromCache) {
+        const cachedData = await helpers.getCache(storageKeys.PROJECTS_CACHE_KEY);
+        if (
+            cachedData !== null &&
+            cachedData !== undefined &&
+            Object.keys(cachedData).length > 0
+        ) {
+            return cachedData;
+        }
+      }
       const data = await backendFunctions.getProjects();
       const parsedProjects = jiraDataParser.extractProjects(data);
       await helpers.setCache(storageKeys.PROJECTS_CACHE_KEY, parsedProjects);
@@ -22,9 +127,19 @@ export const apiService = {
       console.error("Error fetching projects:", error);
     }
   },
-  fetchProjectByKey: async (projectKey) => {
+  fetchProjectByKey: async (projectKey, fromCache = true) => {
     try {
-      const data = await backendFunctions.getProjectByKey( { projectKey: projectKey });
+      if (fromCache) {
+        const cachedData = await helpers.getCache(storageKeys.PROJECT_BY_KEY_REDIS(projectKey));
+        if (
+            cachedData !== null &&
+            cachedData !== undefined &&
+            Object.keys(cachedData).length > 0
+        ) {
+            return cachedData;
+        }
+      }
+      const data = await backendFunctions.getProjectByKey(projectKey);
 
       await helpers.setCache(storageKeys.PROJECT_BY_KEY_REDIS(projectKey), data);
       return data;
@@ -32,8 +147,18 @@ export const apiService = {
       console.error(`Error fetching project ${projectKey}:`, error);
     }
   },
-  fetchAllUsers: async () => {
+  fetchAllUsers: async (fromCache = true) => {
     try {
+      if (fromCache) {
+        const cachedData = await helpers.getCache(storageKeys.ALL_USERS_REDIS);
+        if (
+            cachedData !== null &&
+            cachedData !== undefined &&
+            Object.keys(cachedData).length > 0
+        ) {
+            return cachedData;
+        }
+      }
       const data = await backendFunctions.getUsers();
 
       const result = jiraDataParser.extractUsers(data);
@@ -43,9 +168,19 @@ export const apiService = {
       console.error("Error fetching Users:", error);
     }
   },
-  fetchUsersByProjectKey: async (projectKey) => {
+  fetchUsersByProjectKey: async (projectKey, fromCache = true) => {
     try {
-      const data = await backendFunctions.getUsers( { projectKey });
+      if (fromCache) {
+        const cachedData = await helpers.getCache(storageKeys.USER_BY_PROJECT_KEY_REDIS(projectKey));
+        if (
+            cachedData !== null &&
+            cachedData !== undefined &&
+            Object.keys(cachedData).length > 0
+        ) {
+            return cachedData;
+        }
+      }
+      const data = await backendFunctions.getUsers(projectKey);
 
       const result = jiraDataParser.extractUsers(data);
       await helpers.setCache(storageKeys.USER_BY_PROJECT_KEY_REDIS(projectKey), result);
@@ -54,7 +189,7 @@ export const apiService = {
       console.error(`Error fetching Users for project ${projectKey}:`, error);
     }
   },
-  fetchAllIssuess: async ({
+  fetchReportIssues: async ({
     project = null,
     assignee = null,
     createdStart = null,
@@ -94,11 +229,55 @@ export const apiService = {
       const expand = "changelog";
       const fields = "id,key,changelog,assignee,created,creator,description,duedate,issuetype,priority,project,reporter,status,resolutiondate,summary,updated,customfield_10015,customfield_10016,customfield_10020";
       const jqlCacheKey = helpers.cleanJqlCharacter(jqlQuery);
+        
+      // const cachedData = await helpers.getCache(
+      //   storageKeys.ISSUES_BY_JQL_REDIS(jqlCacheKey)
+      // );
+      // console.log("fetchAllIssuess cachedData", cachedData);
+      // if (
+      //   cachedData !== null &&
+      //   cachedData !== undefined &&
+      //   Object.keys(cachedData).length > 0
+      // ) {
+      //   return cachedData;
+      // }
+      const cache = await cacheService.getAllCachedData(storageKeys.ALL_ISSUES_REDIS);
+      const allIssuesCachedData = cache.data;
+      // const allIssuesCachedData = await helpers.getCache(storageKeys.ALL_ISSUES_REDIS);
+      console.log("fetchAllIssuess allIssuesCachedData", allIssuesCachedData);
+      if (
+        allIssuesCachedData !== null &&
+        allIssuesCachedData !== undefined &&
+        Object.keys(allIssuesCachedData).length > 0
+      ) {
+        const filterPredicate = helpers.generateFilterPredicate({
+          project,
+          assignee,
+          createdStart,
+          createdEnd,
+          updatedStart,
+          updatedEnd,
+          status,
+          sprint,
+          timeFrame,
+          projectIds,
+          userIds,
+          issueTypes,
+          sprintIds,
+          priorities,
+          statuses,
+        });
+        
+        const filteredIssues = allIssuesCachedData.filter(filterPredicate);
+        helpers.setCache(storageKeys.ISSUES_BY_JQL_REDIS(jqlCacheKey), filteredIssues);
+        // await cacheService.setCache(storageKeys.ALL_ISSUES_BROWSER_CACHE_KEY, allIssuesCachedData);
+        return filteredIssues;
+      }
 
       let moreResults = true;
       const allIssues = [];
       while (moreResults) {
-        const data = await backendFunctions.getIssues( {
+        const data = await invoke("getIssues", {
           jqlQuery,
           startAt,
           maxResults,
@@ -115,8 +294,101 @@ export const apiService = {
 
       console.log("issues size:", helpers.getPayloadSize(allIssues));
 
-      await helpers.setCache(storageKeys.ISSUES_BY_JQL_REDIS(jqlCacheKey), allIssues);
+      //await helpers.setCache(storageKeys.ISSUES_BY_JQL_REDIS(jqlCacheKey), allIssues);
 
+      return allIssues;
+    } catch (error) {
+      console.error("Error fetching Issues:", error);
+      throw error;
+    }
+  },
+  fetchAllIssuess: async ({
+    project = null,
+    assignee = null,
+    createdStart = null,
+    createdEnd = null,
+    updatedStart = null,
+    updatedEnd = null,
+    status = null,
+    sprint = null,
+    timeFrame = null,
+    projectIds = [],
+    userIds = [],
+    issueTypes = [],
+    sprintIds = [],
+    priorities = [],
+    statuses = [],
+  }, fromCache = true, shouldStartAt = 0) => {
+    try {
+      const startTime = Date.now();
+      const jqlQuery = helpers.generateJQL({
+        project,
+        assignee,
+        createdStart,
+        createdEnd,
+        updatedStart,
+        updatedEnd,
+        status,
+        sprint,
+        timeFrame,
+        projectIds,
+        userIds,
+        issueTypes,
+        sprintIds,
+        priorities,
+        statuses,
+      });
+      let startAt = shouldStartAt;
+    const maxResults = 100;
+    const expand = "changelog";
+    const fields = "id,key,changelog,assignee,created,creator,description,duedate,issuetype,priority,project,reporter,status,resolutiondate,summary,updated,customfield_10015,customfield_10016,customfield_10020";
+    const jqlCacheKey = helpers.cleanJqlCharacter(jqlQuery);
+        let total = 0;
+      console.log("CACHE ALL DATA fetchIssues fromCache", fromCache);
+
+      if (fromCache) {
+        const cachedData = await helpers.getCache(storageKeys.ALL_ISSUES_REDIS);
+        if (
+            cachedData !== null &&
+            cachedData !== undefined &&
+            Object.keys(cachedData).length > 0
+        ) {
+            return cachedData;
+        }
+      } else if (startAt == 0) {
+        await storage.delete(`${storageKeys.ALL_ISSUES_REDIS}:metadata`);
+      }
+
+      console.log("CACHE ALL DATA fetchIssues startAt", startAt);
+      let moreResults = true;
+      const allIssues = [];
+      while (moreResults && Date.now() - startTime < (10 * 1000)) {
+        const data = await backendFunctions.getIssues(
+          jqlQuery,
+          startAt,
+          maxResults,
+          expand,
+          fields,
+        );
+        if (data === null || data === undefined || Object.keys(data).length == 0) {
+            moreResults = false;
+            break
+        };
+        startAt += maxResults;
+        total = data.total;
+        moreResults = startAt < total;
+        
+        const issues = jiraDataParser.extractIssues(data);
+        allIssues.push(...issues);
+        console.log("CACHE ALL DATA fetchIssues allIssues", allIssues.length);
+      }
+      
+      console.log("CACHE ALL DATA issues size:", helpers.getPayloadSize(allIssues));
+
+      await storage.set(`${storageKeys.ALL_ISSUES_REDIS}:syncMetadata`, { startAt, moreResults, total });
+      await helpers.setAsyncCache(storageKeys.ALL_ISSUES_REDIS, allIssues, total, startAt);
+      const queue = new Queue({ key: 'cache-queue' });
+      await queue.push({ param: 'completion-event', key: jqlCacheKey }, { delayInSeconds: 15 });
       return allIssues;
     } catch (error) {
       console.error("Error fetching Issues:", error);
@@ -158,8 +430,18 @@ export const apiService = {
       console.error("Error fetching statuses:", error);
     }
   },
-  fetchAllSprints: async () => {
+  fetchAllSprints: async (fromCache = true) => {
     try {
+      if (fromCache) {
+        const cachedData = await helpers.getCache(storageKeys.ALL_SPRINTS_REDIS);
+        if (
+            cachedData !== null &&
+            cachedData !== undefined &&
+            Object.keys(cachedData).length > 0
+        ) {
+            return cachedData;
+        }
+      }
       const boardsJson = await backendFunctions.getBoards();
       const boards = boardsJson.values;
       const sprints = [];
@@ -173,7 +455,7 @@ export const apiService = {
   },
   fetchSprintsForProject: async (projectKey) => {
     try {
-      const boardsJson = await backendFunctions.getBoardsForProject( { projectKey });
+      const boardsJson = await backendFunctions.getBoardsForProject(projectKey);
       const boards = boardsJson.values;
       const sprints = [];
       sprints.push(...(await getSprintsForBoards(boards)));
@@ -290,7 +572,7 @@ export const apiService = {
     const startDate = new Date(endDate);
     startDate.setDate(startDate.getDate() - timeFrame);
 
-    const issues = await apiService.fetchAllIssuess({ timeFrame: timeFrame });
+    const issues = await apiService.fetchAllIssuess({ timeFrame: timeFrame }, false);
 
     const chartData = {
       labels: [],
@@ -341,7 +623,7 @@ export const apiService = {
 
     await Promise.all(
       recentSprints.map(async (sprint) => {
-        const issues = await apiService.fetchAllIssuess({ sprint: sprint.id });
+        const issues = await apiService.fetchAllIssuess({ sprint: sprint.id }, false);
         const sprintIssues = issues.filter(
           (issue) =>
             issue.status.toLowerCase() === "done" &&
@@ -366,7 +648,7 @@ export const apiService = {
     const startDate = new Date(endDate);
     startDate.setDate(startDate.getDate() - timeFrame);
 
-    const issues = await apiService.fetchAllIssuess({ timeFrame: timeFrame });
+    const issues = await apiService.fetchAllIssuess({ timeFrame: timeFrame }, false);
 
     const chartData = {
       labels: [],
@@ -405,7 +687,7 @@ export const apiService = {
     const users = await apiService.fetchAllUsers();
     const last30DaysIssues = await apiService.fetchAllIssuess({
       timeFrame: 30,
-    });
+    }, false);
     const activeMembers = new Set(
       last30DaysIssues
         .filter((issue) => issue.assignee !== null)
@@ -437,12 +719,12 @@ export const apiService = {
    * PROJECT DETAILS RELATED METHODS
    */
   getIssueByProjectKey: async (projectKey) => {
-    const issues = await apiService.fetchAllIssuess({ project: projectKey });
+    const issues = await apiService.fetchAllIssuess({ project: projectKey }, false);
     return { issues };
   },
   getKPIsByProjectKey: async (projectKey) => {
     const project = await apiService.fetchProjectByKey(projectKey);
-    const issues = await apiService.fetchAllIssuess({ project: projectKey });
+    const issues = await apiService.fetchAllIssuess({ project: projectKey }, false);
     const sprints = await apiService.fetchSprintsForProject(projectKey);
     const currentSprint = sprints.find((s) => s.state === "active") || null;
     const currentSprintIssues = issues.filter(
@@ -511,7 +793,7 @@ export const apiService = {
    * USER DETAILS RELATED METHODS
    */
   getIssuesByUserKey: async (userKey) => {
-    const issues = await apiService.fetchAllIssuess({ assignee: userKey });
+    const issues = await apiService.fetchAllIssuess({ assignee: userKey }, false);
     const sortedIssues = issues.sort(
       (a, b) => new Date(b.updated) - new Date(a.updated)
     );
@@ -538,8 +820,8 @@ export const apiService = {
     return { issues: shrinkedIssues };
   },
   getKPIsByUserKey: async (userKey) => {
-    const user = await backendFunctions.getUserByKey( { userKey: userKey });
-    const issues = await apiService.fetchAllIssuess({ assignee: userKey });
+    const user = await backendFunctions.getUserByKey(userKey);
+    const issues = await apiService.fetchAllIssuess({ assignee: userKey }, false);
     const projects = Array.from(
       new Set(issues.map((issue) => JSON.stringify(issue.project)))
     ).map((projectString) => JSON.parse(projectString));
@@ -638,9 +920,9 @@ export const apiService = {
    */
   getReportFiltersData: async () => {
     try {
-      const projects = await apiService.fetchAllProjects();
-      const users = await apiService.fetchAllUsers();
-      const sprints = await apiService.fetchAllSprints();
+      const projects = await apiService.fetchAllProjects(false);
+      const users = await apiService.fetchAllUsers(false);
+      const sprints = await apiService.fetchAllSprints(false);
       const issueTypes = await apiService.fetchIssueTypes();
       const issuePriorities = await apiService.fetchIssuePriorities();
       const issuesStatuses = await apiService.fetchIssueStatuses();
@@ -663,6 +945,7 @@ export const apiService = {
   },
   generateReport: async (filters) => {
     try {
+      console.log("filters", filters);
       const {
         reportType,
         startDate,
@@ -675,7 +958,7 @@ export const apiService = {
         statuses,
       } = filters;
 
-      const issues = await apiService.fetchAllIssuess({
+      const issues = await apiService.fetchReportIssues({
         createdStart: startDate,
         createdEnd: endDate,
         projectIds: projectIds,
@@ -700,9 +983,9 @@ export const apiService = {
     }
   },
   getScheduledReports: async () => {
-    const reports = await backendFunctions.getStoredValue( {
-      key: storageKeys.SCHEDULED_REPORTS,
-    });
+    const reports = await backendFunctions.getStoredValue(
+      storageKeys.SCHEDULED_REPORTS,
+    );
     if (reports && Object.keys(reports).length > 0) return reports;
     return [];
   },
@@ -802,7 +1085,7 @@ const getSprintsForBoards = async (boards) => {
   const sprintPromises = boards.map(async (board) => {
     const boardId = board.id;
     const projectName = board.location.projectName;
-    const sprintsJson = await backendFunctions.getSprintsForBoard( { boardId });
+    const sprintsJson = await backendFunctions.getSprintsForBoard(boardId);
     return jiraDataParser.extractSprints(sprintsJson, projectName);
   });
 

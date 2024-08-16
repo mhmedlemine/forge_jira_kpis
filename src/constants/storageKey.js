@@ -2,8 +2,10 @@ export const cloudId = "";
 
 export const storageKeys = {
     CACHE_TYPE: "storage",
+    CACHE_ALL_DATA_TTL: 2 * 60 * 60 * 1000,
     CACHE_TTL: 12 * 60 * 60 * 1000,
     SCHEDULED_REPORTS: `scheduled_reports_data`,
+    LAST_CACHE_ALL_DATA_TIME_KEY: `last_sync_all_data`,
     // storage
     KPIS_OVERVIEW_CACHE_KEY: `KPIs_Overview_data-${cloudId}`,
     RESOLUTION_TIME_CHART_DATA_CACHE_KEY: (timeFrame) => `resolution_time_chart_data-${timeFrame}-${cloudId}`,
@@ -28,7 +30,9 @@ export const storageKeys = {
     USER_DETAILS_REDIS: (userKey) => `user_details_redis-${userKey}-${cloudId}`,
     PROJECT_DETAILS_REDIS: (projectKey) => `projects_details_redis-${projectKey}-${cloudId}`,
 
+    ALL_ISSUES_REDIS: `all_issues_redis_cached`,
     ALL_PROJECTS_REDIS: `all_projects_redis-${cloudId}`,
+    ALL_PROJECTS_KPIS_REDIS: `all_projects_kpis_redis-${cloudId}`,
     ALL_USERS_REDIS: `all_users-${cloudId}`,
     ALL_BOARDS_REDIS: `all_boards_redis-${cloudId}`,
     ALL_SPRINTS_REDIS: `all_sprints-${cloudId}`,

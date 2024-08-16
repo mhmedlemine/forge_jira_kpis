@@ -7,6 +7,7 @@ import {
   kpiCalculations,
 } from "./kpiCalculations";
 import { storageKeys } from "../constants/storageKey";
+import { cacheService } from "./cacheService";
 
 export const apiService = {
   /***
@@ -14,6 +15,11 @@ export const apiService = {
    */
   fetchAllProjects: async () => {
     try {
+      const cachedProjectsData = await cacheService.getCache(storageKeys.PROJECTS_BROWSER_CACHE_KEY);
+      console.log("fetchAllProjects cachedProjectsData", cachedProjectsData);
+      if (cachedProjectsData) {
+        return cachedProjectsData;
+      }
       const cachedData = await helpers.getCache(storageKeys.PROJECTS_CACHE_KEY);
       console.log("fetchAllProjects cachedData", cachedData);
       if (
@@ -21,11 +27,13 @@ export const apiService = {
         cachedData !== undefined &&
         Object.keys(cachedData).length > 0
       ) {
+        await cacheService.setCache(storageKeys.PROJECTS_BROWSER_CACHE_KEY, cachedData);
         return cachedData;
       }
       const data = await invoke("getProjects");
 
       const parsedProjects = jiraDataParser.extractProjects(data);
+      await cacheService.setCache(storageKeys.PROJECTS_BROWSER_CACHE_KEY, parsedProjects);
       await helpers.setCache(storageKeys.PROJECTS_CACHE_KEY, parsedProjects);
       return parsedProjects;
     } catch (error) {
@@ -57,6 +65,11 @@ export const apiService = {
   },
   fetchAllUsers: async () => {
     try {
+      const cachedUsers = await cacheService.getCache(storageKeys.ALL_USERS_BROWSER_CACHE_KEY);
+      console.log("fetchAllUsers cachedUsers", cachedUsers);
+      if (cachedUsers) {
+        return cachedUsers;
+      }
       const cachedData = await helpers.getCache(storageKeys.ALL_USERS_REDIS);
       console.log("fetchAllUsers cachedData", cachedData);
       if (
@@ -64,11 +77,13 @@ export const apiService = {
         cachedData !== undefined &&
         Object.keys(cachedData).length > 0
       ) {
+        await cacheService.setCache(storageKeys.ALL_USERS_BROWSER_CACHE_KEY, cachedData);
         return cachedData;
       }
       const data = await invoke("getUsers");
 
       const result = jiraDataParser.extractUsers(data);
+      await cacheService.setCache(storageKeys.ALL_USERS_BROWSER_CACHE_KEY, result);
       await helpers.setCache(storageKeys.ALL_USERS_REDIS, result);
       return result;
     } catch (error) {
@@ -98,6 +113,11 @@ export const apiService = {
       console.error(`Error fetching Users for project ${projectKey}:`, error);
       throw error;
     }
+  },
+  fetchUsersByProjects: async (projects, users, sprints) => {
+    const allIssues = await apiService.fetchAllIssuess({projectIds: projects, userIds: users, sprintIds: sprints});
+    
+    return allIssues;
   },
   fetchAllIssuess: async ({
     project = null,
@@ -137,9 +157,35 @@ export const apiService = {
       let startAt = 0;
       const maxResults = 100;
       const expand = "changelog";
-      const fields =
-        "id,key,changelog,assignee,created,creator,description,duedate,issuetype,priority,project,reporter,status,resolutiondate,summary,updated,customfield_10015,customfield_10016,customfield_10020";
+      const fields = "id,key,changelog,assignee,created,creator,description,duedate,issuetype,priority,project,reporter,status,resolutiondate,summary,updated,customfield_10015,customfield_10016,customfield_10020";
       const jqlCacheKey = helpers.cleanJqlCharacter(jqlQuery);
+      
+      const allIssueCachedData = await cacheService.getCache(storageKeys.ALL_ISSUES_BROWSER_CACHE_KEY);
+      console.log("fetchAllIssuess allIssueCachedData", allIssueCachedData);
+      if (allIssueCachedData) {
+        const filterPredicate = helpers.generateFilterPredicate({
+          project,
+          assignee,
+          createdStart,
+          createdEnd,
+          updatedStart,
+          updatedEnd,
+          status,
+          sprint,
+          timeFrame,
+          projectIds,
+          userIds,
+          issueTypes,
+          sprintIds,
+          priorities,
+          statuses,
+        });
+        
+        const filteredIssues = allIssueCachedData.filter(filterPredicate);
+        // helpers.setCache(storageKeys.ISSUES_BY_JQL_REDIS(jqlCacheKey), filteredIssues);
+        return filteredIssues;
+      }
+      
       const cachedData = await helpers.getCache(
         storageKeys.ISSUES_BY_JQL_REDIS(jqlCacheKey)
       );
@@ -150,6 +196,37 @@ export const apiService = {
         Object.keys(cachedData).length > 0
       ) {
         return cachedData;
+      }
+      const allIssuesCachedData = await helpers.getCache(storageKeys.ALL_ISSUES_REDIS);
+      console.log("fetchAllIssuess allIssuesCachedData", allIssuesCachedData);
+      if (
+        allIssuesCachedData !== null &&
+        allIssuesCachedData !== undefined &&
+        Object.keys(allIssuesCachedData).length > 0
+      ) {
+        const filterPredicate = helpers.generateFilterPredicate({
+          project,
+          assignee,
+          createdStart,
+          createdEnd,
+          updatedStart,
+          updatedEnd,
+          status,
+          sprint,
+          timeFrame,
+          projectIds,
+          userIds,
+          issueTypes,
+          sprintIds,
+          priorities,
+          statuses,
+        });
+        
+        const filteredIssues = allIssuesCachedData.filter(filterPredicate);
+        helpers.setCache(storageKeys.ISSUES_BY_JQL_REDIS(jqlCacheKey), filteredIssues);
+        await cacheService.setCache(storageKeys.ALL_ISSUES_BROWSER_CACHE_KEY, allIssuesCachedData);
+        await cacheService.setLastCacheTime();
+        return filteredIssues;
       }
 
       let moreResults = true;
@@ -182,22 +259,29 @@ export const apiService = {
   },
   fetchIssueTypes: async () => {
     try {
-      const cachedData = await helpers.getCache(
-        storageKeys.ALL_ISSUE_TYPES_REDIS
-      );
-      console.log("fetchIssueTypes cachedData", cachedData);
-      if (
-        cachedData !== null &&
-        cachedData !== undefined &&
-        Object.keys(cachedData).length > 0
-      ) {
-        return cachedData;
+      const cacheData = await cacheService.getCache(storageKeys.ALL_ISSUE_TYPES_BROWSER_CACHE_KEY);
+      console.log("fetchIssueTypes cacheData", cacheData);
+      if (cacheData) {
+        return cacheData;
       }
+      // const cachedData = await helpers.getCache(
+      //   storageKeys.ALL_ISSUE_TYPES_REDIS
+      // );
+      // console.log("fetchIssueTypes cachedData", cachedData);
+      // if (
+      //   cachedData !== null &&
+      //   cachedData !== undefined &&
+      //   Object.keys(cachedData).length > 0
+      // ) {
+      //   await cacheService.setCache(storageKeys.ALL_ISSUE_TYPES_BROWSER_CACHE_KEY, cacheData);
+      //   return cachedData;
+      // }
       const data = await invoke("getIssueTypes");
       const results = [
         ...new Set(data.map((issueTypeNode) => issueTypeNode.name)),
       ];
-      await helpers.setCache(storageKeys.ALL_ISSUE_TYPES_REDIS, results);
+      await cacheService.setCache(storageKeys.ALL_ISSUE_TYPES_BROWSER_CACHE_KEY, results);
+      // await helpers.setCache(storageKeys.ALL_ISSUE_TYPES_REDIS, results);
       return results;
     } catch (error) {
       console.error("Error fetching issue types:", error);
@@ -206,22 +290,31 @@ export const apiService = {
   },
   fetchIssuePriorities: async () => {
     try {
-      const cachedData = await helpers.getCache(
-        storageKeys.ALL_ISSUE_PRIORITIES_REDIS
+      const cacheData = await cacheService.getCache(
+        storageKeys.ALL_ISSUE_PRIORITIES_BROWSER_CACHE_KEY
       );
-      console.log("fetchIssuePriorities cachedData", cachedData);
-      if (
-        cachedData !== null &&
-        cachedData !== undefined &&
-        Object.keys(cachedData).length > 0
-      ) {
-        return cachedData;
+      console.log("fetchIssuePriorities cacheData", cacheData);
+      if (cacheData) {
+        return cacheData;
       }
+      // const cachedData = await helpers.getCache(
+      //   storageKeys.ALL_ISSUE_PRIORITIES_REDIS
+      // );
+      // console.log("fetchIssuePriorities cachedData", cachedData);
+      // if (
+      //   cachedData !== null &&
+      //   cachedData !== undefined &&
+      //   Object.keys(cachedData).length > 0
+      // ) {
+      //   await cacheService.setCache(storageKeys.ALL_ISSUE_PRIORITIES_BROWSER_CACHE_KEY, cachedData);
+      //   return cachedData;
+      // }
       const data = await invoke("getIssuePriorities");
       const results = [
         ...new Set(data.map((issuePriorityNode) => issuePriorityNode.name)),
       ];
-      await helpers.setCache(storageKeys.ALL_ISSUE_PRIORITIES_REDIS, results);
+      await cacheService.setCache(storageKeys.ALL_ISSUE_PRIORITIES_BROWSER_CACHE_KEY, results);
+      // await helpers.setCache(storageKeys.ALL_ISSUE_PRIORITIES_REDIS, results);
       return results;
     } catch (error) {
       console.error("Error fetching issue priorities:", error);
@@ -230,22 +323,31 @@ export const apiService = {
   },
   fetchIssueStatuses: async () => {
     try {
-      const cachedData = await helpers.getCache(
-        storageKeys.ALL_ISSUE_STATUSES_REDIS
+      const cacheData = await cacheService.getCache(
+        storageKeys.ALL_ISSUE_STATUSES_BROWSER_CACHE_KEY
       );
-      console.log("fetchIssueStatuses cachedData", cachedData);
-      if (
-        cachedData !== null &&
-        cachedData !== undefined &&
-        Object.keys(cachedData).length > 0
-      ) {
-        return cachedData;
+      console.log("fetchIssueStatuses cacheData", cacheData);
+      if (cacheData) {
+        return cacheData;
       }
+      // const cachedData = await helpers.getCache(
+      //   storageKeys.ALL_ISSUE_STATUSES_REDIS
+      // );
+      // console.log("fetchIssueStatuses cachedData", cachedData);
+      // if (
+      //   cachedData !== null &&
+      //   cachedData !== undefined &&
+      //   Object.keys(cachedData).length > 0
+      // ) {
+      //   await cacheService.setCache(storageKeys.ALL_ISSUE_STATUSES_BROWSER_CACHE_KEY, cachedData);
+      //   return cachedData;
+      // }
       const data = await invoke("getIssueStatuses");
       const results = [
         ...new Set(data.map((issueStatusNode) => issueStatusNode.name)),
       ];
-      await helpers.setCache(storageKeys.ALL_ISSUE_STATUSES_REDIS, results);
+      await cacheService.setCache(storageKeys.ALL_ISSUE_STATUSES_BROWSER_CACHE_KEY, results);
+      // await helpers.setCache(storageKeys.ALL_ISSUE_STATUSES_REDIS, results);
       return results;
     } catch (error) {
       console.error("Error fetching statuses:", error);
@@ -254,6 +356,11 @@ export const apiService = {
   },
   fetchAllSprints: async () => {
     try {
+      const cachedSprints = await cacheService.getCache(storageKeys.ALL_SPRINTS_BROWSER_CACHE_KEY);
+      console.log("fetchAllSprints cachedSprints", cachedSprints);
+      if (cachedSprints) {
+        return cachedSprints;
+      }
       const cachedData = await helpers.getCache(storageKeys.ALL_SPRINTS_REDIS);
       console.log("fetchAllSprints cachedData", cachedData);
       if (
@@ -261,6 +368,7 @@ export const apiService = {
         cachedData !== undefined &&
         Object.keys(cachedData).length > 0
       ) {
+        await cacheService.setCache(storageKeys.ALL_SPRINTS_BROWSER_CACHE_KEY, cachedData);
         return cachedData;
       }
       const boardsJson = await invoke("getBoards");
@@ -268,6 +376,7 @@ export const apiService = {
       const sprints = [];
       sprints.push(...(await getSprintsForBoards(boards)));
 
+      await cacheService.setCache(storageKeys.ALL_SPRINTS_BROWSER_CACHE_KEY, sprints);
       await helpers.setCache(storageKeys.ALL_SPRINTS_REDIS, sprints);
       return sprints;
     } catch (error) {
@@ -306,20 +415,24 @@ export const apiService = {
   /***
    * DASHBOARD RELATED METHODS
    */
-  fetchKPIsOverview: async () => {
+  fetchKPIsOverview: async (issues) => {
     try {
-      const cachedData = await helpers.getCache(
-        storageKeys.KPIS_OVERVIEW_CACHE_KEY
-      );
-      console.log("fetchKPIsOverview cachedData", cachedData);
-      if (
-        cachedData !== null &&
-        cachedData !== undefined &&
-        Object.keys(cachedData).length > 0
-      ) {
-        return cachedData;
+      const cacheData = await cacheService.getCache(storageKeys.KPIS_OVERVIEW_BROWSER_CACHE_KEY);
+      console.log("fetchKPIsOverview cacheData", cacheData);
+      if (cacheData) {
+        return cacheData;
       }
-      const issues = await apiService.fetchAllIssuess({});
+      //const cachedData = await helpers.getCache(storageKeys.KPIS_OVERVIEW_CACHE_KEY);
+      //console.log("fetchKPIsOverview cachedData", cachedData);
+      // if (
+      //   cachedData !== null &&
+      //   cachedData !== undefined &&
+      //   Object.keys(cachedData).length > 0
+      // ) {
+      //   await cacheService.setCache(storageKeys.KPIS_OVERVIEW_BROWSER_CACHE_KEY, cachedData);
+      //   return cachedData;
+      // }
+      // const issues = await apiService.fetchAllIssuess({});
       const projects = Array.from(
         new Set(issues.map((issue) => JSON.stringify(issue.project)))
       ).map((projectString) => JSON.parse(projectString));
@@ -407,6 +520,7 @@ export const apiService = {
         users,
       };
       console.log("kpis overview size", helpers.getPayloadSize(data));
+      await cacheService.setCache(storageKeys.KPIS_OVERVIEW_BROWSER_CACHE_KEY, data);
       await helpers.setCache(storageKeys.KPIS_OVERVIEW_CACHE_KEY, data);
       return data;
     } catch (error) {
@@ -415,6 +529,13 @@ export const apiService = {
     }
   },
   fetchResolutionTimeChartData: async (timeFrame) => {
+    const cacheData = await cacheService.getCache(
+      storageKeys.RESOLUTION_TIME_CHART_DATA_BROWSER_CACHE_KEY(timeFrame)
+    );
+    console.log("fetchResolutionTimeChartData cacheData", cacheData);
+    if (cacheData) {
+      return cacheData;
+    }
     const cachedData = await helpers.getCache(
       storageKeys.RESOLUTION_TIME_CHART_DATA_CACHE_KEY(timeFrame)
     );
@@ -424,6 +545,7 @@ export const apiService = {
       cachedData !== undefined &&
       Object.keys(cachedData).length > 0
     ) {
+      await cacheService.setCache(storageKeys.RESOLUTION_TIME_CHART_DATA_BROWSER_CACHE_KEY(timeFrame), cachedData);
       return cachedData;
     }
     const endDate = new Date();
@@ -466,12 +588,20 @@ export const apiService = {
       chartData.data.push(averageResolutionTime.toFixed(2));
     }
     console.log("resolutiontime size", helpers.getPayloadSize(chartData));
+    await cacheService.setCache(storageKeys.RESOLUTION_TIME_CHART_DATA_BROWSER_CACHE_KEY(timeFrame), chartData);
     await helpers.setCache(storageKeys.RESOLUTION_TIME_CHART_DATA_CACHE_KEY(timeFrame), chartData);
     return chartData;
   },
   fetchSprintVelocityChartData: async (lastSprintCount) => {
-    const cachedData = await helpers.getCache(
+    const cacheData = await helpers.getCache(
       storageKeys.SPRINT_VELOCITY_CHART_DATA_CACHE_KEY(lastSprintCount)
+    );
+    console.log("fetchSprintVelocityChartData cacheData", cacheData);
+    if (cacheData) {
+      return cacheData;
+    }
+    const cachedData = await cacheService.getCache(
+      storageKeys.SPRINT_VELOCITY_CHART_DATA_BROWSER_CACHE_KEY(lastSprintCount)
     );
     console.log("fetchSprintVelocityChartData cachedData", cachedData);
     if (
@@ -479,6 +609,7 @@ export const apiService = {
       cachedData !== undefined &&
       Object.keys(cachedData).length > 0
     ) {
+      await cacheService.setCache(storageKeys.SPRINT_VELOCITY_CHART_DATA_BROWSER_CACHE_KEY(lastSprintCount), cachedData);
       return cachedData;
     }
     const allSprints = await apiService.fetchAllSprints();
@@ -511,12 +642,20 @@ export const apiService = {
     );
 
     console.log("sprintvelocity size", helpers.getPayloadSize(chartData));
+    await cacheService.setCache(storageKeys.SPRINT_VELOCITY_CHART_DATA_BROWSER_CACHE_KEY(lastSprintCount), chartData);
     await helpers.setCache(storageKeys.SPRINT_VELOCITY_CHART_DATA_CACHE_KEY(lastSprintCount), chartData);
     return chartData;
   },
   fetchDefectDensityChartData: async (timeFrame) => {
-    const cachedData = await helpers.getCache(
+    const cacheData = await helpers.getCache(
       storageKeys.DEFECT_DENSITY_CHART_DATA_CACHE_KEY(timeFrame)
+    );
+    console.log("fetchDefectDensityChartData cacheData", cacheData);
+    if (cacheData) {
+      return cacheData;
+    }
+    const cachedData = await cacheService.getCache(
+      storageKeys.DEFECT_DENSITY_CHART_DATA_BROWSER_CACHE_KEY(timeFrame)
     );
     console.log("fetchDefectDensityChartData cachedData", cachedData);
     if (
@@ -524,6 +663,7 @@ export const apiService = {
       cachedData !== undefined &&
       Object.keys(cachedData).length > 0
     ) {
+      await cacheService.setCache(storageKeys.DEFECT_DENSITY_CHART_DATA_BROWSER_CACHE_KEY(timeFrame), cachedData);
       return cachedData;
     }
     const endDate = new Date();
@@ -557,6 +697,7 @@ export const apiService = {
     }
 
     console.log("defectdensity size", helpers.getPayloadSize(chartData));
+    await cacheService.setCache(storageKeys.DEFECT_DENSITY_CHART_DATA_BROWSER_CACHE_KEY(timeFrame), chartData);
     await helpers.setCache(storageKeys.DEFECT_DENSITY_CHART_DATA_CACHE_KEY(timeFrame), chartData);
     return chartData;
   },
@@ -567,6 +708,11 @@ export const apiService = {
    * USERS DASHBOARD RELATED METHODS
    */
   getUsersDashboardData: async (startDate, endDate) => {
+    const cacheData = await cacheService.getCache(storageKeys.USERS_BROWSER_CACHE_KEY);
+    console.log("getUsersDashboardData cacheData", cacheData);
+    if (cacheData) {
+      return cacheData;
+    }
     const cachedData = await helpers.getCache(storageKeys.USERS_CACHE_KEY);
     console.log("getUsersDashboardData cachedData", cachedData);
     if (
@@ -574,6 +720,7 @@ export const apiService = {
       cachedData !== undefined &&
       Object.keys(cachedData).length > 0
     ) {
+      await cacheService.setCache(storageKeys.USERS_BROWSER_CACHE_KEY, cachedData);
       return cachedData;
     }
     const users = await apiService.fetchAllUsers();
@@ -587,34 +734,44 @@ export const apiService = {
     ).size;
 
     const userKpis = [];
-    userKpis.push(...(await getUsersKpis(startDate, endDate, users)));
+    // userKpis.push(...(await getUsersKpis(startDate, endDate, users)));
 
-    const data = { users, totalMembers: users.length, activeMembers, userKpis };
-    console.log("userdashbaord size", helpers.getPayloadSize(data));
+    const data = { users, totalMembers: users.length, activeMembers };
+    await cacheService.setCache(storageKeys.USERS_BROWSER_CACHE_KEY, data);
     await helpers.setCache(storageKeys.USERS_CACHE_KEY, data);
     return data;
   },
   getUsersDashboardKpisData: async (startDate, endDate, users) => {
-    const cachedData = await helpers.getCache(
-      storageKeys.USERS_DASHBOARD_KPIS_CACHE_KEY(startDate, endDate)
+    const cacheData = await cacheService.getCache(
+      storageKeys.USERS_DASHBOARD_KPIS_BROWSER_CACHE_KEY(startDate, endDate)
     );
-    console.log("getUsersDashboardKpisData cachedData", cachedData);
-    if (
-      cachedData !== null &&
-      cachedData !== undefined &&
-      cachedData.length > 0 &&
-      Object.keys(cachedData).length > 0
-    ) {
-      return cachedData;
+    console.log("getUsersDashboardKpisData cacheData", cacheData);
+    if (cacheData) {
+      return cacheData;
     }
+    // const cachedData = await helpers.getCache(
+    //   storageKeys.USERS_DASHBOARD_KPIS_CACHE_KEY(startDate, endDate)
+    // );
+    // console.log("getUsersDashboardKpisData cachedData", cachedData);
+    // if (
+    //   cachedData !== null &&
+    //   cachedData !== undefined &&
+    //   cachedData.length > 0 &&
+    //   Object.keys(cachedData).length > 0
+    // ) {
+    //   await cacheService.setCache(storageKeys.USERS_DASHBOARD_KPIS_BROWSER_CACHE_KEY(startDate, endDate), cachedData);
+    //   return cachedData;
+    // }
     if (!users || users.length == 0) {
       users = await apiService.fetchAllUsers();
     }
 
     const userKpis = [];
-    userKpis.push(...(await getUsersKpis(startDate, endDate, users)));
+    const issues = await apiService.fetchAllIssuess({});
+    userKpis.push(...(await getUsersKpis(startDate, endDate, users, issues)));
 
-    await helpers.setCache(storageKeys.USERS_DASHBOARD_KPIS_CACHE_KEY(startDate, endDate), userKpis);
+    await cacheService.setCache(storageKeys.USERS_DASHBOARD_KPIS_BROWSER_CACHE_KEY(startDate, endDate), userKpis);
+    // await helpers.setCache(storageKeys.USERS_DASHBOARD_KPIS_CACHE_KEY(startDate, endDate), userKpis);
     return userKpis;
   },
   /***
@@ -628,20 +785,31 @@ export const apiService = {
     return { issues };
   },
   getKPIsByProjectKey: async (projectKey) => {
-    const cachedData = await helpers.getCache(
-      storageKeys.PROJECT_DETAILS_CACHE_KEY(projectKey)
+    const cacheData = await cacheService.getCache(
+      storageKeys.PROJECT_DETAILS_BROWSER_CACHE_KEY(projectKey)
     );
-    console.log("getKPIsByProjectKey cachedData", cachedData);
-    if (
-      cachedData !== null &&
-      cachedData !== undefined &&
-      Object.keys(cachedData).length > 0
-    ) {
-      return cachedData;
+    console.log("getKPIsByProjectKey cacheData", cacheData);
+    if (cacheData) {
+      return cacheData;
     }
-    const project = await apiService.fetchProjectByKey(projectKey);
+    // const cachedData = await helpers.getCache(
+    //   storageKeys.PROJECT_DETAILS_CACHE_KEY(projectKey)
+    // );
+    // console.log("getKPIsByProjectKey cachedData", cachedData);
+    // if (
+    //   cachedData !== null &&
+    //   cachedData !== undefined &&
+    //   Object.keys(cachedData).length > 0
+    // ) {
+    //   await cacheService.setCache(storageKeys.PROJECT_DETAILS_BROWSER_CACHE_KEY(projectKey), cachedData);
+    //   return cachedData;
+    // }
+    // const project = await apiService.fetchProjectByKey(projectKey);
+    const projects = await apiService.fetchAllProjects();
+    const project = projects.find((p) => p.projectKey === projectKey);
     const issues = await apiService.fetchAllIssuess({ project: projectKey });
-    const sprints = await apiService.fetchSprintsForProject(projectKey);
+    const sprints = Array.from(new Set(issues.filter((issue) => issue.sprints).flatMap((issue) => issue.sprints).map((sprint) => JSON.stringify(sprint)))).map((sprintString) => JSON.parse(sprintString));
+    // const sprints = await apiService.fetchSprintsForProject(projectKey);
     const currentSprint = sprints.find((s) => s.state === "active") || null;
     const currentSprintIssues = issues.filter(
       (i) =>
@@ -698,8 +866,41 @@ export const apiService = {
       statusCount,
       typeCount,
     };
-    await helpers.setCache(storageKeys.PROJECT_DETAILS_CACHE_KEY(projectKey), data);
+    await cacheService.setCache(storageKeys.PROJECT_DETAILS_BROWSER_CACHE_KEY(projectKey), data);
+    // await helpers.setCache(storageKeys.PROJECT_DETAILS_CACHE_KEY(projectKey), data);
     return data;
+  },
+  getAllProjectsKpis: async () => {
+    const cacheData = await cacheService.getCache(storageKeys.ALL_PROJECTS_KPIS_BROWSER_CACHE_KEY);
+    console.log("getAllProjectsKpis cacheData", cacheData);
+    if (cacheData) {
+      return cacheData;
+    }
+    // const cachedData = await helpers.getCache(storageKeys.ALL_PROJECTS_KPIS_REDIS);
+    // console.log("getAllProjectsKpis cachedData", cachedData);
+    // if (
+    //   cachedData !== null &&
+    //   cachedData !== undefined &&
+    //   Object.keys(cachedData).length > 0
+    // ) {
+    //   await cacheService.setCache(storageKeys.ALL_PROJECTS_KPIS_BROWSER_CACHE_KEY, cachedData);
+    //   return cachedData;
+    // }
+    const issues = await apiService.fetchAllIssuess({});
+    const projects = Array.from(new Set(issues.map((issue) => JSON.stringify(issue.project)))).map((projectString) => JSON.parse(projectString));
+    const sprints = Array.from(new Set(issues.filter((issue) => issue.sprints).flatMap((issue) => issue.sprints).map((sprint) => JSON.stringify(sprint)))).map((sprintString) => JSON.parse(sprintString));
+    const projectKpis = [];
+    projects.map((project) => {
+      const projectIssues = issues.filter(
+        (i) => i.project.key === project.key
+      );
+      projectKpis.push(
+        calculateProjectKPIs({ issues: projectIssues, sprints, project })
+      );
+    });
+    await cacheService.setCache(storageKeys.ALL_PROJECTS_KPIS_BROWSER_CACHE_KEY, projectKpis);
+    // await helpers.setCache(storageKeys.ALL_PROJECTS_KPIS_REDIS, projectKpis);
+    return projectKpis;
   },
   /***
    * END PROJECT DETAILS RELATED METHODS
@@ -736,18 +937,28 @@ export const apiService = {
     return { issues: shrinkedIssues };
   },
   getKPIsByUserKey: async (userKey) => {
-    const cachedData = await helpers.getCache(
-      storageKeys.USER_DETAILS_CACHE_KEY(userKey)
+    const cacheData = await cacheService.getCache(
+      storageKeys.USER_DETAILS_BROWSER_CACHE_KEY(userKey)
     );
-    console.log("getKPIsByUserKey cachedData", cachedData);
-    if (
-      cachedData !== null &&
-      cachedData !== undefined &&
-      Object.keys(cachedData).length > 0
-    ) {
-      return cachedData;
+    console.log("getKPIsByUserKey cacheData", cacheData);
+    if (cacheData) {
+      return cacheData;
     }
-    const user = await invoke("getUserByKey", { userKey: userKey });
+    // const cachedData = await helpers.getCache(
+    //   storageKeys.USER_DETAILS_CACHE_KEY(userKey)
+    // );
+    // console.log("getKPIsByUserKey cachedData", cachedData);
+    // if (
+    //   cachedData !== null &&
+    //   cachedData !== undefined &&
+    //   Object.keys(cachedData).length > 0
+    // ) {
+    //   await cacheService.setCache(storageKeys.USER_DETAILS_BROWSER_CACHE_KEY(userKey), cachedData);
+    //   return cachedData;
+    // }
+    // const user = await invoke("getUserByKey", { userKey: userKey });
+    const users = await apiService.fetchAllUsers();
+    const user = users.find((u) => u.userKey === userKey);
     const issues = await apiService.fetchAllIssuess({ assignee: userKey });
     const projects = Array.from(
       new Set(issues.map((issue) => JSON.stringify(issue.project)))
@@ -826,17 +1037,18 @@ export const apiService = {
       cycleTimes,
       leadTimes,
     };
-    const cacheData = {
-      projects,
-      kpis,
-      user,
-      issuesByType,
-      resolutionTimes,
-      cycleTimes,
-      leadTimes,
-    };
+    // const cacheData = {
+    //   projects,
+    //   kpis,
+    //   user,
+    //   issuesByType,
+    //   resolutionTimes,
+    //   cycleTimes,
+    //   leadTimes,
+    // };
     
-    await helpers.setCache(storageKeys.USER_DETAILS_CACHE_KEY(userKey), data);
+    await cacheService.setCache(storageKeys.USER_DETAILS_BROWSER_CACHE_KEY(userKey), data);
+    // await helpers.setCache(storageKeys.USER_DETAILS_CACHE_KEY(userKey), data);
     return data;
   },
   /***
@@ -847,15 +1059,19 @@ export const apiService = {
    */
   getReportFiltersData: async () => {
     try {
-      const cachedData = await helpers.getCache(
-        storageKeys.REPORT_SCREEN_REDIS
-      );
+      const cacheData = await cacheService.getCache(storageKeys.REPORT_SCREEN_BROWSER_CAHCE_KEY);
+      console.log("getReportFiltersData cacheData", cacheData);
+      if (cacheData) {
+        return cacheData;
+      }
+      const cachedData = await helpers.getCache(storageKeys.REPORT_SCREEN_REDIS);
       console.log("getReportFiltersData cachedData", cachedData);
       if (
         cachedData !== null &&
         cachedData !== undefined &&
         Object.keys(cachedData).length > 0
       ) {
+        await cacheService.setCache(storageKeys.REPORT_SCREEN_BROWSER_CAHCE_KEY, cachedData);
         return cachedData;
       }
 
@@ -877,6 +1093,7 @@ export const apiService = {
 
       console.log("getReportFiltersData size", helpers.getPayloadSize(data));
 
+      await cacheService.setCache(storageKeys.REPORT_SCREEN_BROWSER_CAHCE_KEY, data);
       await helpers.setCache(storageKeys.REPORT_SCREEN_REDIS, data);
 
       return data;
@@ -1066,19 +1283,32 @@ const getSprintsForBoards = async (boards) => {
   const sprintsArrays = await Promise.all(sprintPromises);
   return sprintsArrays.flat();
 };
-const getUsersKpis = async (startDate, endDate, users) => {
-  const kpisPromises = users.map(async (user) => {
-    const userIssues = await apiService.fetchAllIssuess({
-      updatedStart: startDate,
-      updatedEnd: endDate,
-      assignee: user.userKey,
-    });
-    console.log("userIssues", userIssues);
-    return calculateUserKPIs({ issues: userIssues, user: user.displayName });
+const getUsersKpis = async (startDate, endDate, users, issues) => {
+  const userKpis = [];
+
+  users.map((user) => {
+    const userIssues = issues.filter(
+      (i) => i.assignee !== null && i.assignee.accountId === user.userKey 
+      && (new Date(i.updated) > new Date(startDate))
+      && (new Date(i.updated) < new Date(endDate))
+    );
+    userKpis.push(
+      calculateUserKPIs({ issues: userIssues, user: user.displayName })
+    );
   });
 
-  const kpisArrays = await Promise.all(kpisPromises);
-  return kpisArrays.flat();
+  // const kpisPromises = users.map(async (user) => {
+  //   const userIssues = await apiService.fetchAllIssuess({
+  //     updatedStart: startDate,
+  //     updatedEnd: endDate,
+  //     assignee: user.userKey,
+  //   });
+  //   console.log("userIssues", userIssues);
+  //   return calculateUserKPIs({ issues: userIssues, user: user.displayName });
+  // });
+
+  // const kpisArrays = await Promise.all(kpisPromises);
+  return userKpis;
 };
 
 export async function fetchConfig() {

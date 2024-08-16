@@ -179,7 +179,6 @@ export const kpiCalculations = {
   },
   sprintCompletionRate: (payload) => {
     const {issues, sprints} = payload;
-    console.log("sprints", sprints)
     const completedSprints = sprints.filter(
       (sprint) => sprint.state === "closed"
     );

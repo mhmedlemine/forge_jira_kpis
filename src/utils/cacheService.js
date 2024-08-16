@@ -130,6 +130,24 @@ export const cacheService = {
     metadata.receivedChunks++;
     await storage.set(`${key}:metadata`, metadata);
   },
+  getAllCachedData: async (key) => {
+    const metadata = await storage.get(`${key}:metadata`);
+
+    if (!isValidMetaCache(metadata)) {
+      return null;
+    }
+
+    const { totalChunks, totalSize } = metadata;
+
+    const completeData = await cacheService.getAllChunks(
+      key,
+      totalChunks
+    );
+    return {
+      data: JSON.parse(completeData),
+      isComplete: true,
+    };
+  },
   getCachedData: async (key) => {
     const metadata = await storage.get(`${key}:metadata`);
 
@@ -139,7 +157,7 @@ export const cacheService = {
 
     const { totalChunks, totalSize } = metadata;
 
-    if (totalSize <= (5000 * 1024)) {
+    if (totalSize <= (4000 * 1024)) {
       const completeData = await cacheService.getAllChunks(
         key,
         totalChunks
@@ -150,7 +168,7 @@ export const cacheService = {
       };
     } else {
       return {
-        totalResponseChunks: Math.ceil(totalSize / (5000 * 1024)),
+        totalResponseChunks: Math.ceil(totalSize / (4000 * 1024)),
         totalChunks,
         totalSize,
         isComplete: false,
@@ -167,7 +185,7 @@ export const cacheService = {
   },
   getCachedDataChunk: async (key, chunkIndex, metadata) => {
     const { totalChunks, totalSize } = metadata;
-    const storageChunksPerResponseChunk = Math.floor((5000 * 1024) / (200 * 1024));
+    const storageChunksPerResponseChunk = Math.floor((4000 * 1024) / (200 * 1024));
 
     let responseChunk = "";
     const startIndex = chunkIndex * storageChunksPerResponseChunk;

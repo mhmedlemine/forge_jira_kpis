@@ -9,26 +9,52 @@ import TabContext from '@mui/lab/TabContext';
 import TabList from '@mui/lab/TabList';
 import TabPanel from '@mui/lab/TabPanel';
 import ConfigurationPanel from "./components/configuration/ConfigurationPanel";
-import { fetchConfig } from './utils/api';
 import Dashboard from './components/Dashboard';
 import Projects from "./components/projects/Projects";
 import ProjectDetails from './components/projects/project-details/ProjectDetails';
 import Users from './components/users/Users';
 import UserDetails from './components/users/user-details/UserDetails';
 import Reports from './components/reports/Reports';
+import { helpers } from './utils/helpers';
+import { darkTheme, lightTheme } from './constants/themes';
+import { ThemeProvider } from '@mui/material/styles';
+import { CssBaseline } from '@mui/material';
 import { apiService } from './utils/api';
 
 function App() {
+  const [theme, setTheme] = useState(lightTheme);
   const [currentView, setCurrentView] = useState('main');
   const [viewParams, setViewParams] = useState({});
   const [tabIndex, setTabIndex] = React.useState('1');
   const [config, setConfig] = useState(null);
+  const [allIssues, setAllIssues] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    loadConfig();
+    const applyTheme = async () => {
+      const jiraTheme = await helpers.getJiraTheme();
+      setTheme(jiraTheme.colorMode === 'dark' ? darkTheme : lightTheme);
+      console.log('jiraTheme', jiraTheme);
+    };
+    applyTheme();
+
+    loadAllIssues(); 
+    // loadConfig();
   }, []);
+
+  const loadAllIssues = async () => {
+    setIsLoading(true);
+    try {
+      const issues = await apiService.fetchAllIssuess({});
+      setAllIssues(issues);
+      setError(null);
+    } catch (err) {
+      console.error('Error loading configuration:', err);
+      setError(`Failed to load configuration: ${err.message}`);
+    }
+    setIsLoading(false);
+  };
 
   const loadConfig = async () => {
     try {
@@ -56,13 +82,19 @@ function App() {
 
   if (isLoading) {
     return (
-      <p>Loading configuration...</p>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <p>Loading...</p>
+      </ThemeProvider>
     );
   }
 
   if (error) {
     return (
-      <p>Error: {error}</p>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <p>Error: {error}</p>
+      </ThemeProvider>
     );
   }
   
@@ -86,7 +118,7 @@ function App() {
               <Tab label="Configuration" value="5" />
             </TabList>
           </Box>
-          <TabPanel value="1"><Dashboard /></TabPanel>
+          <TabPanel value="1"><Dashboard allIssues={allIssues} /></TabPanel>
           <TabPanel value="2"><Projects navigate={navigate} /></TabPanel>
           <TabPanel value="3"><Users navigate={navigate} /></TabPanel>
           <TabPanel value="4"><Reports /></TabPanel>
@@ -97,9 +129,10 @@ function App() {
   };
   
   return (
-    <div>
+    <ThemeProvider theme={theme}>
+      {/* <CssBaseline /> */}
       {renderRoute()}
-    </div>
+    </ThemeProvider>
   );
 
 }

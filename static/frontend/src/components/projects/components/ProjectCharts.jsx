@@ -15,48 +15,49 @@ const ProjectCharts = ({ projects, categories }) => {
     const labels = ['Active', 'Inactive'];
 
     return {
-        labels: labels,
-        datasets: [{
-            label: 'Status',
-            data: data,
-            backgroundColor: ['#4CAF50', '#F44336'],
-        }]
+      labels: labels,
+      datasets: [{
+        label: 'Status',
+        data: data,
+        backgroundColor: ['#4CAF50', '#F44336'],
+      }]
     };
   };
 
   const prepareProjectCategoryData = () => {
-    const data = categories.map(category => 
+    const data = categories.map(category =>
       projects.filter(project => project.category === category).length
     );
     const labels = categories;
 
     return {
-        labels: labels,
-        datasets: [{
-            label: 'Projects',
-            data: data,
-            backgroundColor: 'rgba(75, 192, 192, 0.6)',
-        }]
+      labels: labels,
+      datasets: [{
+        label: 'Projects',
+        data: data,
+        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+      }]
     };
   };
 
   return (
-    <>
+
+    <Paper sx={{ p: 2, mt: 3 }}>
+
+
       <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 2 }}>
-                <Typography variant="h6">Project Status Distribution</Typography>
-                <ChartComponent type="pie" data={prepareProjectStatusData()} />
-              </Paper>
-          </Grid>
-          <Grid item xs={12} md={6}>
-              <Paper sx={{ p: 2 }}>
-                  <Typography variant="h6">Project Category Distribution</Typography>
-                  <ChartComponent type="bar" data={prepareProjectCategoryData()} />
-              </Paper>
-          </Grid>
+        <Grid item xs={6}>
+          <Typography variant="h6">Project Status Distribution</Typography>
+          <ChartComponent type="pie" data={prepareProjectStatusData()} />
+        </Grid>
+        <Grid item xs={6}>
+          <Typography variant="h6">Project Category Distribution</Typography>
+          <ChartComponent type="bar" data={prepareProjectCategoryData()} />
+
+        </Grid>
       </Grid>
-    </>
+    </Paper >
+
   );
 };
 
