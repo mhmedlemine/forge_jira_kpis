@@ -23,14 +23,14 @@ export const cacheService = {
     });
   },
   getCache: async (key) => {
+    // const lastCacheTime = localStorage.getItem(storageKeys.LAST_CACHE_ALL_DATA_TIME_KEY);
+    // if (Date.now() - lastCacheTime > storageKeys.CACHE_ALL_DATA_TTL) {
+    //   cacheService.clearCache();
+    //   return null;
+    // }
     if (!secretKey) await getCacheSecret();
     if (!db) await initDB();
     return new Promise((resolve, reject) => {
-      const lastCacheTime = localStorage.getItem(storageKeys.LAST_CACHE_ALL_DATA_TIME_KEY);
-      if (Date.now() - lastCacheTime > storageKeys.CACHE_ALL_DATA_TTL) {
-        cacheService.clearCache();
-        return null;
-      }
       const transaction = db.transaction([STORE_NAME], "readonly");
       const store = transaction.objectStore(STORE_NAME);
       const request = store.get(key);
@@ -68,7 +68,7 @@ export const cacheService = {
     });
   },
   setLastCacheTime: async () => {
-    const lastCacheTime = await storage.get(storageKeys.LAST_CACHE_ALL_DATA_TIME_KEY);
+    const lastCacheTime = secretKey = await invoke("getLastCahceTime");
     localStorage.set(storageKeys.LAST_CACHE_ALL_DATA_TIME_KEY, lastCacheTime);
   },
 };

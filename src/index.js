@@ -8,6 +8,10 @@ const resolver = new Resolver();
 resolver.define('getCacheSecret', async () => {
   return "Lz7uc3arn887JgkLv3MENuQu7OGtBUsE4zKV1P3x1rxWBsNdt1Qvg/iYAVXWsAa8";
 });
+resolver.define('getLastCahceTime', async () => {
+  return await storage.get(storageKeys.LAST_CACHE_ALL_DATA_TIME_KEY);
+});
+
 resolver.define('getProjects', async () => {
   return await jiraDataService.fetchAllProjects();
 });

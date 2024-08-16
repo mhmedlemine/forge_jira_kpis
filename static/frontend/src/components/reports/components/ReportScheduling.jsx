@@ -32,7 +32,7 @@ const ReportScheduling = ({ filters }) => {
     const [reportName, setReportName] = useState('');
     const [frequency, setFrequency] = useState('');
     const [weekDay, setWeekDay] = useState(new Date().getDay());
-    const [monthDay, setMonthDay] = useState(new Date().getMonth() + 1);
+    const [monthDay, setMonthDay] = useState(new Date().getDate());
     const [time, setTime] = useState('');
     const [recipients, setRecipients] = useState('');
     const [loading, setLoading] = useState(false);
@@ -124,7 +124,7 @@ const ReportScheduling = ({ filters }) => {
                     <ListItem key={report.id}>
                         <ListItemText
                             primary={report.name}
-                            secondary={`${report.frequency}, ${report.frequency !== 'Daily' ? report.frequency === 'Weekly' ? weekDay[weekDay] : monthDay : ''} at ${report.time}`}
+                            secondary={`${report.frequency}, ${report.frequency != 'Daily' ? report.frequency == 'Weekly' ? weekDays[weekDay] : monthDay : ''} at ${report.time}`}
                         />
                         {loading ? (
                             <CircularProgress size={20} />

@@ -225,7 +225,7 @@ export const apiService = {
         const filteredIssues = allIssuesCachedData.filter(filterPredicate);
         helpers.setCache(storageKeys.ISSUES_BY_JQL_REDIS(jqlCacheKey), filteredIssues);
         await cacheService.setCache(storageKeys.ALL_ISSUES_BROWSER_CACHE_KEY, allIssuesCachedData);
-        await cacheService.setLastCacheTime();
+        // await cacheService.setLastCacheTime();
         return filteredIssues;
       }
 
