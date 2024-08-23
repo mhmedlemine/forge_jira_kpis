@@ -43,6 +43,9 @@ resolver.define('getIssuePriorities', async () => {
 resolver.define('getIssueStatuses', async () => {
   return await jiraDataService.fetchIssueStatuses();
 });
+resolver.define('getIssueCommercialLabels', async () => {
+  return await jiraDataService.fetchIssueCommercialLabels();
+});
 resolver.define('getBoards', async () => {
   return await jiraDataService.fetchBoards();
 });

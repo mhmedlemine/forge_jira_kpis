@@ -64,6 +64,7 @@ export const storageKeys = {
     ALL_ISSUE_PRIORITIES_BROWSER_CACHE_KEY: `MXXyd3Xr341Inw9cbcOaeA`,
     ALL_ISSUE_STATUSES_REDIS: `all_issue_statuses-${cloudId}`,
     ALL_ISSUE_STATUSES_BROWSER_CACHE_KEY: `iEmd8R2BtBAe9MjxUhWJww`,
+    ALL_ISSUE_COMMERCIAL_LABELS_BROWSER_CACHE_KEY: `iEmd34wwzy8R2BtBAe9MjxUhWJww`,
     ISSUES_BY_JQL_REDIS: (jql) => `issues_by_jql_redis-${jql}-${cloudId}`,
     PROJECT_BY_KEY_REDIS: (projectKey) => `project_by_key-${projectKey}-${cloudId}`,
     USER_BY_KEY_REDIS: (userKey) => `user_by_key-${userKey}-${cloudId}`,

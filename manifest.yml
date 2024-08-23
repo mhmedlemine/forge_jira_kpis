@@ -33,6 +33,7 @@ permissions:
       backend:
         - https://express-redis-email.onrender.com
   scopes:
+    - manage:jira-configuration
     - read:jira-work
     - write:jira-work
     - storage:app

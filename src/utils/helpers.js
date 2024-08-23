@@ -120,13 +120,13 @@ export const helpers = {
       if (sprintIds.length > 0 && (!issue.sprints || !issue.sprints.some(s => sprintIds.includes(s.id)))) return false;
       if (priorities.length > 0 && !priorities.includes(issue.priority)) return false;
       if (statuses.length > 0 && !statuses.includes(issue.status)) return false;
-      
+
       if (timeFrame) {
         const timeFrameDate = new Date();
         timeFrameDate.setDate(timeFrameDate.getDate() - timeFrame);
         if (new Date(issue.updated) < timeFrameDate) return false;
       }
-      
+        
       return true;
     };
   },

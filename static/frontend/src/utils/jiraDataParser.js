@@ -63,6 +63,8 @@ export const jiraDataParser = {
           ? issueNode.fields.issuetype.name
           : null,
         key: issueNode.key,
+        labels: issueNode.fields.labels ? issueNode.fields.labels.join(", ") : '',
+        commercialLabels: issueNode.fields.customfield_10148 ? issueNode.fields.customfield_10148.map(l => l.value).join(", ") : '',
         priority: issueNode.fields.priority 
           ? issueNode.fields.priority.name 
           : null,

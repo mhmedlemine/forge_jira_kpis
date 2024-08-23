@@ -135,6 +135,7 @@ export const apiService = {
     sprintIds = [],
     priorities = [],
     statuses = [],
+    labels = [],
   }) => {
     try {
       const jqlQuery = helpers.generateJQL({
@@ -153,11 +154,12 @@ export const apiService = {
         sprintIds,
         priorities,
         statuses,
+        labels,
       });
       let startAt = 0;
       const maxResults = 100;
       const expand = "changelog";
-      const fields = "id,key,changelog,assignee,created,creator,description,duedate,issuetype,priority,project,reporter,status,resolutiondate,summary,updated,customfield_10015,customfield_10016,customfield_10020";
+      const fields = "id,key,changelog,assignee,created,creator,description,duedate,issuetype,priority,project,reporter,status,resolutiondate,summary,updated,labels,customfield_10015,customfield_10016,customfield_10020,customfield_10148"; // customfield_10148 is COMMERCIAL-LABELS
       const jqlCacheKey = helpers.cleanJqlCharacter(jqlQuery);
       
       const allIssueCachedData = await cacheService.getCache(storageKeys.ALL_ISSUES_BROWSER_CACHE_KEY);
@@ -179,6 +181,7 @@ export const apiService = {
           sprintIds,
           priorities,
           statuses,
+          labels,
         });
         
         const filteredIssues = allIssueCachedData.filter(filterPredicate);
@@ -220,6 +223,7 @@ export const apiService = {
           sprintIds,
           priorities,
           statuses,
+          labels,
         });
         
         const filteredIssues = allIssuesCachedData.filter(filterPredicate);
@@ -249,6 +253,9 @@ export const apiService = {
 
       console.log("issues size:", helpers.getPayloadSize(allIssues));
 
+      const filterPredicate = helpers.generateFilterPredicate({labels});
+      const filteredIssues = allIssuesCachedData.filter(filterPredicate);
+      
       await helpers.setCache(storageKeys.ISSUES_BY_JQL_REDIS(jqlCacheKey), allIssues);
 
       return allIssues;
@@ -347,6 +354,39 @@ export const apiService = {
         ...new Set(data.map((issueStatusNode) => issueStatusNode.name)),
       ];
       await cacheService.setCache(storageKeys.ALL_ISSUE_STATUSES_BROWSER_CACHE_KEY, results);
+      // await helpers.setCache(storageKeys.ALL_ISSUE_STATUSES_REDIS, results);
+      return results;
+    } catch (error) {
+      console.error("Error fetching statuses:", error);
+      throw error;
+    }
+  },
+  fetchIssueCommercialLabels: async () => {
+    try {
+      const cacheData = await cacheService.getCache(
+        storageKeys.ALL_ISSUE_COMMERCIAL_LABELS_BROWSER_CACHE_KEY
+      );
+      console.log("fetchIssueCommercialLabels cacheData", cacheData);
+      if (cacheData) {
+        return cacheData;
+      }
+      // const cachedData = await helpers.getCache(
+      //   storageKeys.ALL_ISSUE_STATUSES_REDIS
+      // );
+      // console.log("fetchIssueStatuses cachedData", cachedData);
+      // if (
+      //   cachedData !== null &&
+      //   cachedData !== undefined &&
+      //   Object.keys(cachedData).length > 0
+      // ) {
+      //   await cacheService.setCache(storageKeys.ALL_ISSUE_STATUSES_BROWSER_CACHE_KEY, cachedData);
+      //   return cachedData;
+      // }
+      const data = await invoke("getIssueCommercialLabels");
+      const results = [
+        ...new Set(data.values.map((node) => node.value)),
+      ];
+      await cacheService.setCache(storageKeys.ALL_ISSUE_COMMERCIAL_LABELS_BROWSER_CACHE_KEY, results);
       // await helpers.setCache(storageKeys.ALL_ISSUE_STATUSES_REDIS, results);
       return results;
     } catch (error) {
@@ -1081,6 +1121,7 @@ export const apiService = {
       const issueTypes = await apiService.fetchIssueTypes();
       const issuePriorities = await apiService.fetchIssuePriorities();
       const issuesStatuses = await apiService.fetchIssueStatuses();
+      const issuesCommercialLabels = await apiService.fetchIssueCommercialLabels();
 
       const data = {
         projects,
@@ -1089,6 +1130,7 @@ export const apiService = {
         issueTypes,
         issuePriorities,
         issuesStatuses,
+        issuesCommercialLabels,
       };
 
       console.log("getReportFiltersData size", helpers.getPayloadSize(data));
@@ -1115,8 +1157,10 @@ export const apiService = {
         sprintIds,
         priorities,
         statuses,
+        labels,
       } = filters;
 
+      console.log("filters", filters)
       const issues = await apiService.fetchAllIssuess({
         createdStart: startDate,
         createdEnd: endDate,
@@ -1126,6 +1170,7 @@ export const apiService = {
         issueTypes: issueTypes,
         priorities: priorities,
         statuses: statuses,
+        labels: labels,
       });
       console.log("report issues", issues);
       switch (reportType) {

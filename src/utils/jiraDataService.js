@@ -228,4 +228,24 @@ export const jiraDataService = {
       throw error;
     }
   },
+  fetchIssueCommercialLabels: async () => {
+    try {
+      const response = await api
+        .asApp()
+        .requestJira(
+          route`/rest/api/3/field/customfield_10148/context/10541/option`
+        );
+      
+      if (response.status !== 200) {
+        console.error('Error fetching issue statuses:', response.status, await response.text());
+        return undefined;
+      }
+      
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error("Error fetching issue statuses from Jira", error);
+      throw error;
+    }
+  },
 };

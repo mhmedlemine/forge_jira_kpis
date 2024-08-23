@@ -227,7 +227,7 @@ export const apiService = {
       let startAt = 0;
       const maxResults = 100;
       const expand = "changelog";
-      const fields = "id,key,changelog,assignee,created,creator,description,duedate,issuetype,priority,project,reporter,status,resolutiondate,summary,updated,customfield_10015,customfield_10016,customfield_10020";
+      const fields = "id,key,changelog,assignee,created,creator,description,duedate,issuetype,priority,project,reporter,status,resolutiondate,summary,updated,labels,customfield_10015,customfield_10016,customfield_10020,customfield_10148"; // customfield_10148 is COMMERCIAL-LABELS
       const jqlCacheKey = helpers.cleanJqlCharacter(jqlQuery);
         
       // const cachedData = await helpers.getCache(
@@ -341,7 +341,7 @@ export const apiService = {
       let startAt = shouldStartAt;
     const maxResults = 100;
     const expand = "changelog";
-    const fields = "id,key,changelog,assignee,created,creator,description,duedate,issuetype,priority,project,reporter,status,resolutiondate,summary,updated,customfield_10015,customfield_10016,customfield_10020";
+    const fields = "id,key,changelog,assignee,created,creator,description,duedate,issuetype,priority,project,reporter,status,resolutiondate,summary,updated,labels,customfield_10015,customfield_10016,customfield_10020,customfield_10148"; // customfield_10148 is COMMERCIAL-LABELS
     const jqlCacheKey = helpers.cleanJqlCharacter(jqlQuery);
         let total = 0;
       console.log("CACHE ALL DATA fetchIssues fromCache", fromCache);

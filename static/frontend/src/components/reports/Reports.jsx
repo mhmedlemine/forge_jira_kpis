@@ -27,6 +27,8 @@ const Reports = () => {
   const [selectedPriority, setSelectedPriority] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [selectedStatus, setSelectedStatus] = useState([]);
+  const [labels, setLabels] = useState([]);
+  const [selectedLabel, setSelectedLabel] = useState([]);
   const [reportData, setReportData] = useState(null);
 
   useEffect(() => {
@@ -54,10 +56,9 @@ const Reports = () => {
     const sprintsData = Array.from(new Set(issues.filter((issue) => issue.sprints).flatMap((issue) => issue.sprints).map((sprint) => JSON.stringify(sprint)))).map((sprintString) => JSON.parse(sprintString));
     
     setUsers(usersData);
-    setSprints(sprintsData); 
+    setSprints(sprintsData);
     setLoadingFilters(false)
   };
-
   
   const filterPerUsers = async (val) => {
     setLoadingFilters(true)
@@ -109,6 +110,7 @@ const Reports = () => {
       setIssueTypes(data.issueTypes);
       setPriorities(data.issuePriorities);
       setStatuses(data.issuesStatuses);
+      setLabels(data.issuesCommercialLabels??[]);
     } catch (error) {
       console.error('Error fetching projects:', error);
     }
@@ -127,7 +129,8 @@ const Reports = () => {
         issueTypes: selectedIssueType,
         sprintIds: selectedSprint,
         priorities: selectedPriority,
-        statuses: selectedStatus
+        statuses: selectedStatus,
+        labels: selectedLabel
       };
 
       const data = await apiService.generateReport(filters);
@@ -175,6 +178,9 @@ const Reports = () => {
           statuses={statuses}
           selectedStatus={selectedStatus}
           setSelectedStatus={setSelectedStatus}
+          labels={labels}
+          selectedLabel={selectedLabel}
+          setSelectedLabel={setSelectedLabel}
           generateReport={generateReport}
           isLoading={loadingReport}
           filterPerProjects={filterPerProjects}
@@ -193,7 +199,8 @@ const Reports = () => {
               issueTypes: selectedIssueType,
               sprintIds: selectedSprint,
               priorities: selectedPriority,
-              statuses: selectedStatus
+              statuses: selectedStatus,
+              labels: labels,
             }
           } 
         />

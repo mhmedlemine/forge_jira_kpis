@@ -22,6 +22,7 @@ export const helpers = {
     sprintIds = [],
     priorities = [],
     statuses = [],
+    labels = [],
   }) => {
     const jql = [];
 
@@ -80,6 +81,10 @@ export const helpers = {
     if (statuses.length > 0) {
       jql.push(`status IN (${statuses.join(',')})`);
     }
+
+    if (labels.length > 0) {
+      jql.push(`commeercial-labels IN (${labels.join(',')})`);
+    }
     
     if (timeFrame) {
       jql.push(`updated >= -${timeFrame}d`);
@@ -103,8 +108,11 @@ export const helpers = {
     sprintIds = [],
     priorities = [],
     statuses = [],
+    labels = [],
   }) => {
     return (issue) => {
+      console.log("issue", issue)
+      console.log("labels", labels)
       if (project && (!issue.project || issue.project.key !== project)) return false;
       if (assignee && (!issue.assignee || issue.assignee.accountId !== assignee)) return false;
       
@@ -123,6 +131,7 @@ export const helpers = {
       if (sprintIds.length > 0 && (!issue.sprints || !issue.sprints.some(s => sprintIds.includes(s.id)))) return false;
       if (priorities.length > 0 && !priorities.includes(issue.priority)) return false;
       if (statuses.length > 0 && !statuses.includes(issue.status)) return false;
+      if (labels.length > 0 && !labels.some(l => issue.commercialLabels.includes(l))) return false;
       
       if (timeFrame) {
         const timeFrameDate = new Date();

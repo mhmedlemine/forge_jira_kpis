@@ -35,6 +35,9 @@ const ReportFilters = ({
     statuses,
     selectedStatus,
     setSelectedStatus,
+    labels,
+    selectedLabel,
+    setSelectedLabel,
     generateReport,
     filterPerProjects,
     filterPerUsers,
@@ -210,6 +213,30 @@ const ReportFilters = ({
                     </Select>
                 </FormControl>
             </Grid>
+            {(selectedProject.length == 1 && selectedProject[0].toLowerCase() == 'mm') &&<Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                    <InputLabel>Commercial Label</InputLabel>
+                    <Select
+                        multiple
+                        value={selectedLabel}
+                        onChange={(e) => setSelectedLabel(e.target.value)}
+                        label="Commercial Label"
+                        renderValue={(selected) => (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                {selected.map((value) => (
+                                    <Chip key={value} label={value} />
+                                ))}
+                            </Box>
+                        )}
+                    >
+                        {labels.map((label) => (
+                            <MenuItem key={label} value={label}>
+                                {label}
+                            </MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+            </Grid>}
             <Grid item xs={12}>
                 <Button variant="contained" onClick={generateReport} fullWidth>
                     {isLoading ? 'Generating...' : loadingFilters ? 'Loading Filter Params' : 'Generate Report'}
