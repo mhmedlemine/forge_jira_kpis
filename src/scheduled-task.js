@@ -27,6 +27,86 @@ export const runScheduledReports = async () => {
   }
 }
 
+async function checkProjectStatus() {
+  console.log("checking ALL Projects Statuses")
+  const projects = await getAllProjects();
+  console.log("checking projects", projects)
+  for (const project of projects) {
+    // if (project.key == 'TAF') {
+      console.log("checking project Status", project.key)
+
+      const response = await api.asApp().requestJira(route`/rest/api/3/project/${project.key}/properties/projectStatus`, {
+        method: 'DELETE'
+      });
+      const response2 = await api.asApp().requestJira(route`/rest/api/3/project/${project.key}/properties/qaCheckList`, {
+        method: 'DELETE'
+      });
+      // await ensureProjectStatus(project.key);
+      // await ensureProjectCheckList(project.key);
+    // }
+  }
+}
+
+async function getAllProjects() {
+  const response = await api.asApp().requestJira(route`/rest/api/2/project`);
+  const data = await response.json();
+  return data;
+}
+
+async function ensureProjectStatus(projectId) {
+  try {
+    const response = await api.asApp().requestJira(route`/rest/api/2/project/${projectId}/properties/projectStatus`);
+    if (response.status === 404) {
+      await setProjectStatus(projectId, 'development');
+    }
+  } catch (error) {
+    console.error(`Error ensuring project status for project ${projectId}:`, error);
+  }
+}
+async function ensureProjectCheckList(projectId) {
+  try {
+    const response = await api.asApp().requestJira(route`/rest/api/2/project/${projectId}/properties/qaCheckList`);
+    if (response.status === 404) {
+      const defaultCheckList = {
+        checklist: [
+          { name: "Code review", completed: false },
+          { name: "Testing", completed: false },
+        ]
+      }
+      await setProjectCheckList(projectId, defaultCheckList);
+    }
+  } catch (error) {
+    console.error(`Error ensuring project status for project ${projectId}:`, error);
+  }
+}
+
+async function setProjectStatus(projectId, status) {
+  const response = await api.asApp().requestJira(route`/rest/api/3/project/${projectId}/properties/projectStatus`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ status })
+  });
+  
+  if (response.status !== 200 && response.status !== 201) {
+    console.error(`Failed to set project status for project ${projectId}`);
+  }
+}
+async function setProjectCheckList(projectId, checklist) {
+  const response = await api.asApp().requestJira(route`/rest/api/3/project/${projectId}/properties/qaCheckList`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ checklist })
+  });
+  
+  if (response.status !== 200 && response.status !== 201) {
+    console.error(`Failed to set checklist for project ${projectId}`);
+  }
+}
+
 const shouldRunCacheAllData = async (lastCacheTime) => {
   return Date.now() - lastCacheTime > storageKeys.CACHE_ALL_DATA_TTL;
 }

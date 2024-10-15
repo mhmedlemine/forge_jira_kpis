@@ -3,6 +3,15 @@ import { storageKeys } from "../constants/storageKey";
 
 
 export const jiraDataService = {
+  checkAdminStatus: async () => {
+    try {
+      const response = await api.asUser().requestJira(route`/rest/api/2/myself?expand=groups,applicationRoles`);
+      const userData = await response.json();
+      return userData;
+    } catch (error) {
+      console.error("Error fetching projects from Jira:", error);
+    }
+  },
   fetchAllProjects: async () => {
     try {
       const response = await api

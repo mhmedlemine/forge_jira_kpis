@@ -1,4 +1,10 @@
 modules:
+  jira:projectPage:
+    - key: project-page
+      resource: main
+      resolver:
+        function: resolver
+      title: QA Checklist
   jira:globalPage:
     - key: forge-ng-hello-world-page
       resource: main
@@ -12,10 +18,23 @@ modules:
       handler: scheduled-task.runScheduledReports
     - key: consumer-function
       handler: consumer.handler
+    - key: installation-handler
+      handler: installation.handler
+    - key: project-created-handler
+      handler: eventHandler.onProjectCreated
   scheduledTrigger:
     - key: run-scheduled-reports
       function: scheduled-task-email
       interval: hour
+  trigger:
+    - key: installation-trigger
+      function: installation-handler
+      events:
+          - avi:app:installed
+    - key: projectCreatedTrigger
+      function: project-created-handler
+      events:
+        - avi:jira:created:project
   consumer:
     - key: queue-consumer
       queue: cache-queue
@@ -29,22 +48,33 @@ resources:
       port: 3000
 permissions:
   external:
+    frames:
+      - 'https://app.powerbi.com'
+    images:
+      - 'https://*.powerbi.com'
+    styles:
+      - 'https://*.powerbi.com'
+    scripts:
+      - 'https://*.powerbi.com'
     fetch:
       backend:
         - https://express-redis-email.onrender.com
   scopes:
-    - manage:jira-configuration
     - read:jira-work
-    - write:jira-work
-    - storage:app
     - read:jira-user
     - read:sprint:jira-software
     - read:project:jira
     - read:board-scope:jira-software
     - read:board-scope.admin:jira-software
+    - write:jira-work
+    - storage:app
+    - manage:jira-configuration
+    - manage:jira-project
   content:
     styles:
       - unsafe-inline
+    scripts:
+      - 'unsafe-inline'
 app:
   runtime:
     name: nodejs18.x

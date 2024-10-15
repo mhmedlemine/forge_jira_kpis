@@ -12,6 +12,9 @@ resolver.define('getLastCahceTime', async () => {
   return await storage.get(storageKeys.LAST_CACHE_ALL_DATA_TIME_KEY);
 });
 
+resolver.define('getAdminStatus', async () => {
+  return await jiraDataService.checkAdminStatus();
+});
 resolver.define('getProjects', async () => {
   return await jiraDataService.fetchAllProjects();
 });
@@ -194,25 +197,248 @@ resolver.define('saveConfig', async ({ payload }) => {
   return { success: true };
 });
 
-function getDateRangeFromTimeFrame(timeFrame) {
-  const endDate = new Date();
-  let startDate;
 
-  switch (timeFrame) {
-    case 'last7days':
-      startDate = new Date(endDate.getTime() - 7 * 24 * 60 * 60 * 1000);
-      break;
-    case 'last30days':
-      startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
-      break;
-    case 'lastQuarter':
-      startDate = new Date(endDate.getTime() - 90 * 24 * 60 * 60 * 1000);
-      break;
-    default:
-      startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+const STORAGE_KEY = "defaultQAChecklist";
+
+resolver.define("getProjectProperties", async ({ payload }) => {
+  const { projectId } = payload;
+  const statusResponse = await api
+    .asApp()
+    .requestJira(
+      route`/rest/api/2/project/${projectId}/properties/projectStatus`
+    );
+  const qaCheckListResponse = await api
+    .asApp()
+    .requestJira(
+      route`/rest/api/2/project/${projectId}/properties/qaCheckList`
+    );
+
+  if (statusResponse.status === 404 || qaCheckListResponse.status === 404) {
+    return await setProperties(projectId);
   }
 
-  return { startDate, endDate };
+  const status =
+    statusResponse.status === 200
+      ? await statusResponse.json()
+      : { value: "Not set" };
+  const qaCheckList =
+    qaCheckListResponse.status === 200
+      ? await qaCheckListResponse.json()
+      : { value: { checklist: [] } };
+
+  console.log("status", status);
+  console.log("qaCheckList", qaCheckList);
+
+  return {
+    projectStatus: status.value,
+    qaCheckList: qaCheckList.value,
+  };
+});
+async function setProperties(projectId) {
+  try {
+    await api
+      .asApp()
+      .requestJira(
+        route`/rest/api/2/project/${projectId}/properties/projectStatus`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status: "development" }),
+        }
+      );
+
+    const defaultCheckList = (await storage.get(STORAGE_KEY)) || [
+        { name: "Code review", completed: false },
+        { name: "Testing", completed: false },
+    ];
+    console.log("defaultCheckList", defaultCheckList);
+    //   const defaultCheckList = {
+    //     checklist: [
+    //       { name: "Code review", completed: false },
+    //       { name: "Testing", completed: false },
+    //     ],
+    //   };
+    await api
+      .asApp()
+      .requestJira(
+        route`/rest/api/2/project/${projectId}/properties/qaCheckList`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ checklist: defaultCheckList }),
+        }
+      );
+    const statusResponse = await api
+      .asApp()
+      .requestJira(
+        route`/rest/api/2/project/${projectId}/properties/projectStatus`
+      );
+    const qaCheckListResponse = await api
+      .asApp()
+      .requestJira(
+        route`/rest/api/2/project/${projectId}/properties/qaCheckList`
+      );
+
+    const status =
+      statusResponse.status === 200
+        ? await statusResponse.json()
+        : { value: "Not set" };
+    const qaCheckList =
+      qaCheckListResponse.status === 200
+        ? await qaCheckListResponse.json()
+        : { value: { checklist: [] } };
+
+    return {
+      projectStatus: status.value,
+      qaCheckList: qaCheckList.value,
+    };
+  } catch (e) {
+    console.log("error setting properties:", e);
+  }
 }
+resolver.define("getDefaultQAChecklist", async () => {
+    const tt = await storage.get(STORAGE_KEY) ||
+    [
+      { name: "Code review", completed: false },
+      { name: "Testing", completed: false },
+    ];
+    console.log('tt', tt)
+  return (
+    (await storage.get(STORAGE_KEY)) ||
+      [
+        { name: "Code review", completed: false },
+        { name: "Testing", completed: false },
+      ]
+  );
+});
+resolver.define("setDefaultQAChecklist", async ({ payload }) => {
+  const { defaultChecklist } = payload;
+  await storage.set(STORAGE_KEY, defaultChecklist);
+  return { success: true };
+});
+resolver.define(
+  "setDefaultQAChecklistAndUpdateProjects",
+  async ({ payload }) => {
+    const { defaultChecklist } = payload;
+
+    console.log("defaultChecklist", defaultChecklist)
+    await storage.set(STORAGE_KEY, defaultChecklist);
+
+    const projectsResponse = await api
+      .asApp()
+      .requestJira(route`/rest/api/2/project`);
+    const projects = await projectsResponse.json();
+    console.log("projects", projects.length)
+    for (const project of projects) {
+      try {
+        const qaCheckListResponse = await api
+          .asApp()
+          .requestJira(
+            route`/rest/api/2/project/${project.id}/properties/qaCheckList`
+          );
+          
+        let currentQACheckList = { checklist: [] };
+        console.log("currentQACheckList", currentQACheckList)
+        if (qaCheckListResponse.status === 200) {
+          currentQACheckList = await qaCheckListResponse.json();
+          currentQACheckList = currentQACheckList.value;
+        } else { 
+            continue;
+        }
+
+        console.log("currentQACheckList", currentQACheckList)
+        const existingItemsMap = new Map(
+            currentQACheckList.checklist.map((item) => [
+                item.name,
+                item.completed,
+            ])
+        );
+        console.log("existingItemsMap", existingItemsMap)
+        
+        const updatedChecklist = defaultChecklist.map((item) => ({
+            name: item.name,
+            completed: existingItemsMap.has(item.name)
+            ? existingItemsMap.get(item.name)
+            : false,
+        }));
+        console.log("updatedChecklist", updatedChecklist)
+
+        await api
+          .asApp()
+          .requestJira(
+            route`/rest/api/2/project/${project.id}/properties/qaCheckList`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ checklist: updatedChecklist }),
+            }
+          );
+      } catch (error) {
+        console.error(
+          `Failed to update qaCheckList for project ${project.key}:`,
+          error
+        );
+      }
+    }
+
+    return { success: true };
+  }
+);
+resolver.define("updateQACheckList", async ({ payload }) => {
+  const { projectId, updatedChecklist } = payload;
+
+  console.log("projectId", projectId);
+  console.log("updatedChecklist", updatedChecklist);
+  const response = await api
+    .asApp()
+    .requestJira(
+      route`/rest/api/2/project/${projectId}/properties/qaCheckList`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ checklist: updatedChecklist }),
+      }
+    );
+
+  
+
+  const allCompleted = updatedChecklist.every(item => item.completed);
+
+  if (allCompleted) {
+    await api.asApp().requestJira(route`/rest/api/3/project/${projectId}/properties/projectStatus`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({status: "Ready for Prod"})
+    });
+  }
+
+
+  return { success: true };
+});
+resolver.define("moveProjectStatusToProd", async ({ payload }) => {
+  const { projectId } = payload;
+
+  await api.asApp().requestJira(route`/rest/api/3/project/${projectId}/properties/projectStatus`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({status: "Prod"})
+    });
+  
+
+  return { success: true };
+});
+
 
 export const handler = resolver.getDefinitions();

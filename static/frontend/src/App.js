@@ -30,6 +30,23 @@ function App() {
   const [allIssues, setAllIssues] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [canAccessConfig, setCanAccessConfig] = useState(false);
+  const [canAccessApp, setCanAccessApp] = useState(false);
+  const [isQaTeam, setIsQaTeam] = useState(false);
+  const [isLoadingPermissions, setIsLoadingPermissions] = useState(true);
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      setIsLoading(true);
+      const data = await apiService.checkAdminStatus();
+      console.log("data", data)
+      setCanAccessConfig(data.groups.items.some(group => group.name === 'site-admins'));
+      setCanAccessApp(data.groups.items.some(group => group.name === 'smart_jira_kpis_users'));
+      setIsQaTeam(data.groups.items.some(group => group.name === 'smart-qa-team'));
+      setIsLoading(false);
+    };
+    checkAdminStatus();
+  }, []);
 
   useEffect(() => {
     const applyTheme = async () => {
@@ -39,10 +56,13 @@ function App() {
     };
     applyTheme();
 
-    loadAllIssues(); 
     // loadConfig();
   }, []);
 
+  useEffect(() => {
+    loadAllIssues(); 
+    // loadConfig();
+  }, []);
   const loadAllIssues = async () => {
     setIsLoading(true);
     try {
@@ -79,6 +99,15 @@ function App() {
     setCurrentView(view);
     setViewParams(params);
   };
+
+  if (!canAccessApp && !isLoadingPermissions) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <p>You do not have permission to access this page.</p>
+      </ThemeProvider>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -122,7 +151,7 @@ function App() {
           <TabPanel value="2"><Projects navigate={navigate} /></TabPanel>
           <TabPanel value="3"><Users navigate={navigate} /></TabPanel>
           <TabPanel value="4"><Reports /></TabPanel>
-          <TabPanel value="5"><ConfigurationPanel config={config} setConfig={setConfig} /></TabPanel>
+          <TabPanel value="5"><ConfigurationPanel /></TabPanel>
         </TabContext>
       </Box>
     );

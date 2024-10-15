@@ -10,6 +10,11 @@ import { storageKeys } from "../constants/storageKey";
 import { cacheService } from "./cacheService";
 
 export const apiService = {
+  checkAdminStatus: async () => {
+    const data = await invoke("getAdminStatus");
+    //const isAdmin = data.groups.items.some(group => group.name === 'smart_jira_kpis_users');
+    return data;
+  },
   /***
    * JIRA DATA FETCH METHODS
    */
@@ -254,7 +259,7 @@ export const apiService = {
       console.log("issues size:", helpers.getPayloadSize(allIssues));
 
       const filterPredicate = helpers.generateFilterPredicate({labels});
-      const filteredIssues = allIssuesCachedData.filter(filterPredicate);
+      //const filteredIssues = allIssuesCachedData.filter(filterPredicate);
       
       await helpers.setCache(storageKeys.ISSUES_BY_JQL_REDIS(jqlCacheKey), allIssues);
 
